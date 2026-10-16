@@ -183,7 +183,7 @@ semantics; rendered verbatim for no-argument and --help invocations.
 
 ---
 
-# tag_manifest.py | Python | 831L | 29 symbols | 10 imports | 59 comments
+# tag_manifest.py | Python | 877L | 30 symbols | 10 imports | 60 comments
 > Path: `src/json2mp3/tag_manifest.py`
 
 ## Imports
@@ -202,10 +202,10 @@ from eyed3.id3.frames import (
 
 ## Definitions
 
-- var `EYED3_LOG_LEVEL = logging.ERROR` (L45)
-- var `SUPPORTED_TAG_FIELDS = (` (L61)
-- var `ATTRIBUTE_FRAME_IDS = {` (L82)
-### fn `def _normalise_value(value: Any) -> Any` `priv` (L114-133)
+- var `EYED3_LOG_LEVEL = logging.ERROR` (L46)
+- var `SUPPORTED_TAG_FIELDS = (` (L62)
+- var `ATTRIBUTE_FRAME_IDS = {` (L83)
+### fn `def _normalise_value(value: Any) -> Any` `priv` (L115-134)
 - @brief Defines the injectable EyeD3-compatible MP3 loader signature. */
 - @brief Converts an EyeD3 value into a JSON-compatible scalar, list, or object.
 - @details Converts tuples and lists recursively, preserves JSON primitives, recursively normalizes mapping values, and converts EyeD3 domain values to their stable string form. Complexity: O(n) for sequence length n. Side effects: none.
@@ -213,14 +213,14 @@ from eyed3.id3.frames import (
 - @return {Any} JSON-compatible normalized representation.
 - @satisfies DES-011, REQ-049, REQ-055
 
-### fn `def _normalise_frame_id(fid: bytes) -> bytes` `priv` (L134-148)
+### fn `def _normalise_frame_id(fid: bytes) -> bytes` `priv` (L135-149)
 - @brief Normalizes an ID3 frame identifier to its four-character form.
 - @details Maps three-character ID3v2.2 identifiers through the EyeD3 mapping table and returns four-character identifiers unchanged. Complexity: O(1). Side effects: none.
 - @param fid {bytes} Raw frame identifier from an EyeD3 frame set key or frame.
 - @return {bytes} Canonical four-character frame identifier.
 - @satisfies REQ-054
 
-### fn `def _decode_id3_string(data: bytes, encoding: bytes) -> str` `priv` (L149-168)
+### fn `def _decode_id3_string(data: bytes, encoding: bytes) -> str` `priv` (L150-169)
 - @brief Decodes one ID3 text field payload using its encoding byte.
 - @details Supports latin-1, UTF-16 with BOM, UTF-16BE, and UTF-8 codecs used by ID3v2 text frames. Complexity: O(n). Side effects: none.
 - @param data {bytes} Encoded text field bytes without terminator.
@@ -228,14 +228,14 @@ from eyed3.id3.frames import (
 - @return {str} Decoded text. @raises UnicodeDecodeError If bytes are invalid for the codec.
 - @satisfies REQ-055
 
-### fn `def _id3_encoding_for(*values: str) -> tuple[bytes, bytes]` `priv` (L169-187)
+### fn `def _id3_encoding_for(*values: str) -> tuple[bytes, bytes]` `priv` (L170-188)
 - @brief Selects the deterministic ID3 encoding for a set of strings.
 - @details Chooses latin-1 when every value is latin-1 encodable and UTF-16 with BOM otherwise; both codecs are valid for ID3v2.3 and ID3v2.4. Encoding selection is content-deterministic and independent of stored bytes. Complexity: O(total-characters). Side effects: none.
 - @param values {str} Strings that share one frame encoding.
 - @return {tuple[bytes, bytes]} Encoding byte and string terminator bytes.
 - @satisfies REQ-055
 
-### fn `def _encode_id3_string(encoding: bytes, value: str) -> bytes` `priv` (L188-206)
+### fn `def _encode_id3_string(encoding: bytes, value: str) -> bytes` `priv` (L189-207)
 - @brief Encodes one string with a previously selected ID3 encoding.
 - @details Inverse of _decode_id3_string for the same encoding byte. Complexity: O(n). Side effects: none.
 - @param encoding {bytes} ID3 encoding byte constant.
@@ -243,7 +243,7 @@ from eyed3.id3.frames import (
 - @return {bytes} Encoded bytes without terminator.
 - @satisfies REQ-055
 
-### fn `def _split_terminated(data: bytes, delimiter: bytes) -> tuple[bytes, bytes]` `priv` (L207-222)
+### fn `def _split_terminated(data: bytes, delimiter: bytes) -> tuple[bytes, bytes]` `priv` (L208-223)
 - @brief Splits one ID3 payload at its first string terminator.
 - @details Complexity: O(n). Side effects: none.
 - @param data {bytes} Payload starting with a terminated string.
@@ -251,16 +251,16 @@ from eyed3.id3.frames import (
 - @return {tuple[bytes, bytes]} Terminated string bytes and remaining payload. @raises ValueError If the terminator is absent.
 - @satisfies REQ-055
 
-### fn `def _parse_sylt_payload(payload: bytes) -> dict[str, Any]` `priv` (L223-261)
+### fn `def _parse_sylt_payload(payload: bytes) -> dict[str, Any]` `priv` (L224-262)
 - @brief Parses one raw SYLT frame payload into a structured mapping.
 - @details Decodes the encoding byte, three-byte language, timestamp format, content type, terminated descriptor, and repeated terminated-text plus four-byte big-endian timestamp entries. Complexity: O(payload-length). Side effects: none.
 - @param payload {bytes} Raw SYLT frame payload bytes from an EyeD3 raw frame.
 - @return {dict[str, Any]} Keys lang, description, format, type, and lyrics list of `[timestamp, text]` pairs. @raises ValueError If the payload is truncated or malformed.
 - @satisfies REQ-052, REQ-055
 
-### fn `def _render_sylt_payload(` `priv` (L262-263)
+### fn `def _render_sylt_payload(` `priv` (L263-264)
 
-### fn `def _frame_key(frame: Any) -> str | None` `priv` (L303-336)
+### fn `def _frame_key(frame: Any) -> str | None` `priv` (L304-337)
 - @brief Serializes one SYLT manifest value into raw frame payload bytes.
 - @brief Computes the canonical manifest key for one EyeD3 frame.
 - @details Selects a deterministic encoding covering the descriptor and every
@@ -279,28 +279,28 @@ lyrics list of `[timestamp, text]` pairs.
 - @satisfies REQ-055
 - @satisfies REQ-052, REQ-053, REQ-054, REQ-056
 
-### fn `def _frame_value(frame: Any) -> Any` `priv` (L337-364)
+### fn `def _frame_value(frame: Any) -> Any` `priv` (L338-365)
 - @brief Computes the JSON value for one EyeD3 frame.
 - @details Returns text for description-bearing text frames, URL for URL frames, text or text list for generic text frames, and the structured SYLT object for raw synchronized-lyrics frames. Complexity: O(payload-length) for raw SYLT frames, otherwise O(1). Side effects: none.
 - @param frame {Any} EyeD3 frame object from a tag frame set.
 - @return {Any} JSON-compatible frame value. @raises ValueError If a raw SYLT payload is malformed.
 - @satisfies REQ-052, REQ-054, REQ-055
 
-### fn `def _parse_frame_key(field: str) -> dict[str, Any] | None` `priv` (L365-407)
+### fn `def _parse_frame_key(field: str) -> dict[str, Any] | None` `priv` (L366-408)
 - @brief Parses one manifest tag key into a frame construction specification.
 - @details Validates `<FRAME>` plain identifiers, `TXXX:` and `WXXX:` description keys, `COMM:`, `USLT:`, and `SYLT:` language-description keys, and `USER:` language keys; rejects identifiers covered by attribute fields. Complexity: O(key-length). Side effects: none.
 - @param field {str} Manifest tag key.
 - @return {dict[str, Any] | None} Specification with fid bytes and optional description or lang, or null when the key is not a settable frame key.
 - @satisfies REQ-053, REQ-054
 
-### fn `def _is_settable_key(field: str) -> bool` `priv` (L408-418)
+### fn `def _is_settable_key(field: str) -> bool` `priv` (L409-419)
 - @brief Reports whether one manifest tag key maps to an ID3 attribute or frame.
 - @details Complexity: O(key-length). Side effects: none.
 - @param field {str} Manifest tag key.
 - @return {bool} True for supported attribute fields and valid frame keys.
 - @satisfies REQ-042, REQ-043, REQ-044
 
-### fn `def _matching_frames(tag: Any, field: str) -> list[Any]` `priv` (L419-433)
+### fn `def _matching_frames(tag: Any, field: str) -> list[Any]` `priv` (L420-434)
 - @brief Lists tag frames whose canonical manifest key equals one key.
 - @details Complexity: O(F) frames plus raw SYLT payload parsing. Side effects: none.
 - @param tag {Any} Mutable EyeD3 tag object.
@@ -308,13 +308,13 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {list[Any]} Matching EyeD3 frame objects.
 - @satisfies REQ-044
 
-### fn `def _text_value(value: Any) -> str` `priv` (L434-446)
+### fn `def _text_value(value: Any) -> str` `priv` (L435-447)
 - @brief Coerces one manifest scalar into a frame text string.
 - @details Complexity: O(value-length). Side effects: none.
 - @param value {Any} Manifest scalar value.
 - @return {str} Frame text. @raises ValueError If the value is not a string scalar.
 
-### fn `def _build_frame(spec: dict[str, Any], value: Any) -> Any` `priv` (L447-486)
+### fn `def _build_frame(spec: dict[str, Any], value: Any) -> Any` `priv` (L448-487)
 - @brief Constructs one EyeD3 frame from a key specification and value.
 - @details Builds UserTextFrame, UserUrlFrame, CommentFrame, LyricsFrame, TermsOfUseFrame, raw SYLT, generic UrlFrame, or generic TextFrame instances according to the specification frame identifier. Complexity: O(value-size). Side effects: none.
 - @param spec {dict[str, Any]} Output of _parse_frame_key for the target key.
@@ -322,7 +322,7 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {Any} Unattached EyeD3 frame object. @raises ValueError If the value shape is invalid for the frame type.
 - @satisfies REQ-043, REQ-055
 
-### fn `def _set_frame_field(tag: Any, spec: dict[str, Any], field: str, value: Any) -> None` `priv` (L487-512)
+### fn `def _set_frame_field(tag: Any, spec: dict[str, Any], field: str, value: Any) -> None` `priv` (L488-513)
 - @brief Replaces or removes the frames bound to one manifest frame key.
 - @details Removes every existing frame with the canonical key, then attaches one newly constructed frame when the value is non-null. Complexity: O(F) frames plus value size. Side effects: mutates the tag frame set.
 - @param tag {Any} Mutable EyeD3 tag object.
@@ -332,21 +332,29 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {None} No value. @raises ValueError If the value shape is invalid for the frame type.
 - @satisfies REQ-042, REQ-043, REQ-044
 
-### fn `def _tag_values(tag: Any | None) -> dict[str, Any]` `priv` (L513-544)
+### fn `def _attribute_value(tag: Any, field: str) -> Any` `priv` (L514-541)
+- @brief Reads one supported EyeD3 tag attribute with raw-frame fallback.
+- @details Returns getattr(tag, field) when EyeD3 parses the attribute and falls back to the raw value of the first ATTRIBUTE_FRAME_IDS covering frame when EyeD3 raises GenreException for a stored value such as a numeric genre string absent from the standard genre map. Complexity: O(1) normally, O(F) frames on fallback. Side effects: none.
+- @param tag {Any} EyeD3 tag object.
+- @param field {str} Supported attribute field name from SUPPORTED_TAG_FIELDS.
+- @return {Any} Parsed attribute value, first covering-frame value, or null.
+- @satisfies REQ-049, REQ-052
+
+### fn `def _tag_values(tag: Any | None) -> dict[str, Any]` `priv` (L542-574)
 - @brief Extracts all manifest tag values from one EyeD3 tag object.
-- @details Reads each SUPPORTED_TAG_FIELDS attribute once, then scans the tag frame set and emits canonical keys for every additional text-bearing frame, including TXXX, WXXX, COMM, USLT, USER, and raw SYLT frames; binary frames are omitted. Complexity: O(T + F). Side effects: none.
+- @details Reads each SUPPORTED_TAG_FIELDS attribute once through the _attribute_value GenreException raw-frame fallback, then scans the tag frame set and emits canonical keys for every additional text-bearing frame, including TXXX, WXXX, COMM, USLT, USER, and raw SYLT frames; binary frames are omitted. Complexity: O(T + F). Side effects: none.
 - @param tag {Any | None} EyeD3 tag object or null for an untagged file.
 - @return {dict[str, Any]} Tag-key to normalized-value mapping.
 - @satisfies DES-011, REQ-025, REQ-049, REQ-052, REQ-053, REQ-054, REQ-056
 
-### fn `def _load_audio(path: str) -> Any` `priv` (L545-556)
+### fn `def _load_audio(path: str) -> Any` `priv` (L575-586)
 - @brief Loads one MP3 through the EyeD3 module.
 - @details Delegates MP3 parsing to eyed3.load; null is returned by EyeD3 for unreadable or unsupported audio data. Complexity: external-library bound.
 - @param path {str} Existing target MP3 path.
 - @return {Any} EyeD3 audio object or null.
 - @satisfies CTN-004
 
-### fn `def _normalise_relative_path(root: Path, audio_file: Path) -> str` `priv` (L557-569)
+### fn `def _normalise_relative_path(root: Path, audio_file: Path) -> str` `priv` (L587-599)
 - @brief Produces a POSIX-relative manifest key for one scanned file.
 - @details Computes the path relative to root and converts platform separators to POSIX separators. Complexity: O(path-length). Side effects: none.
 - @param root {Path} Resolved MP3 scan root.
@@ -354,16 +362,16 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {str} Normalized relative manifest path.
 - @satisfies REQ-048
 
-### fn `def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]` `priv` (L570-589)
+### fn `def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]` `priv` (L600-619)
 - @brief Recursively discovers MP3 files below a directory.
 - @details Selects regular files whose suffix equals .mp3 case-insensitively and sorts output by normalized relative path. Complexity: O(F log F).
 - @param root {Path} Candidate MP3 root directory.
 - @return {list[tuple[str, Path]]} Sorted manifest-key and absolute-path pairs. @raises ValueError If root is not a directory.
 - @satisfies REQ-032, REQ-048
 
-### fn `def _read_manifest(` `priv` (L590-593)
+### fn `def _read_manifest(` `priv` (L620-623)
 
-### fn `def _write_manifest(json_file: Path, manifest: dict[str, dict[str, Any]]) -> None` `priv` (L629-649)
+### fn `def _write_manifest(json_file: Path, manifest: dict[str, dict[str, Any]]) -> None` `priv` (L659-679)
 - @brief Loads a JSON array manifest into a relative-path index.
 - @brief Serializes a normalized tag index as a deterministic JSON array.
 - @details Returns an empty index for a missing destination, validates entry
@@ -380,7 +388,7 @@ Complexity: O(E), where E is entry count. Side effects: file read.
 - @satisfies REQ-033, REQ-040, REQ-048
 - @satisfies DES-012, REQ-033
 
-### fn `def _changed_fields(old_tags: dict[str, Any], new_tags: dict[str, Any]) -> list[str]` `priv` (L650-667)
+### fn `def _changed_fields(old_tags: dict[str, Any], new_tags: dict[str, Any]) -> list[str]` `priv` (L680-697)
 - @brief Lists tag keys with unequal old and new values.
 - @details Compares the union of keys in lexical order and omits unchanged keys, covering attribute keys and frame keys uniformly. Complexity: O(T log T). Side effects: none.
 - @param old_tags {dict[str, Any]} Previous key-value mapping.
@@ -388,15 +396,15 @@ Complexity: O(E), where E is entry count. Side effects: file read.
 - @return {list[str]} Lexically ordered differing tag keys.
 - @satisfies REQ-037, REQ-046
 
-### fn `def tags_extract(` (L668-672)
+### fn `def tags_extract(` (L698-702)
 
-### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L715-739)
+### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L745-785)
 - @brief Extracts recursive MP3 ID3 data and reconciles one JSON manifest.
 - @brief Assigns or clears one manifest tag key on an EyeD3 tag object.
 - @details Loads existing entries, replaces scanned entries by normalized path,
 removes stale entries, writes the complete sorted array, and emits only
 changed existing-tag details plus file-count summary. Complexity: O(F log F).
-- @details Routes supported attribute fields through EyeD3 attribute setters, converting track and disc lists to tuples, and routes canonical frame keys through frame replacement or removal. Complexity: O(F) frames. Side effects: mutates tag.
+- @details Routes supported attribute fields through EyeD3 attribute setters, converting track and disc lists to tuples, and routes canonical frame keys through frame replacement or removal. Attribute writes rejected by EyeD3 with GenreException for non-standard numeric genre strings fall back to replacing the covering ATTRIBUTE_FRAME_IDS frame with the literal string value. Complexity: O(F) frames. Side effects: mutates tag.
 - @param mp3_root {str | Path} Recursive MP3 directory root.
 - @param json_filename {str | Path} JSON destination manifest path.
 - @param loader {AudioLoader} Injectable EyeD3-compatible MP3 loader.
@@ -405,41 +413,43 @@ changed existing-tag details plus file-count summary. Complexity: O(F log F).
 - @param value {Any} Manifest value or null for removal.
 - @return {int} Zero on successful reconciliation; two on input/manifest error.
 - @return {None} No value. @raises ValueError If a frame value shape is invalid.
+- @note The GenreException fallback writes str(value) as raw covering-frame text; null values never reach it because EyeD3 removes attributes without parsing.
 - @satisfies REQ-032, REQ-039, REQ-048, REQ-049, REQ-052, REQ-056
 - @satisfies REQ-042, REQ-043, REQ-044, REQ-053
 
-### fn `def update_tags(` (L740-744)
+### fn `def update_tags(` (L786-790)
 
 ## Symbol Index
 |Symbol|Kind|Vis|Lines|Sig|
 |---|---|---|---|---|
-|`EYED3_LOG_LEVEL`|var|pub|45||
-|`SUPPORTED_TAG_FIELDS`|var|pub|61||
-|`ATTRIBUTE_FRAME_IDS`|var|pub|82||
-|`_normalise_value`|fn|priv|114-133|def _normalise_value(value: Any) -> Any|
-|`_normalise_frame_id`|fn|priv|134-148|def _normalise_frame_id(fid: bytes) -> bytes|
-|`_decode_id3_string`|fn|priv|149-168|def _decode_id3_string(data: bytes, encoding: bytes) -> str|
-|`_id3_encoding_for`|fn|priv|169-187|def _id3_encoding_for(*values: str) -> tuple[bytes, bytes]|
-|`_encode_id3_string`|fn|priv|188-206|def _encode_id3_string(encoding: bytes, value: str) -> bytes|
-|`_split_terminated`|fn|priv|207-222|def _split_terminated(data: bytes, delimiter: bytes) -> t...|
-|`_parse_sylt_payload`|fn|priv|223-261|def _parse_sylt_payload(payload: bytes) -> dict[str, Any]|
-|`_render_sylt_payload`|fn|priv|262-263|def _render_sylt_payload(|
-|`_frame_key`|fn|priv|303-336|def _frame_key(frame: Any) -> str | None|
-|`_frame_value`|fn|priv|337-364|def _frame_value(frame: Any) -> Any|
-|`_parse_frame_key`|fn|priv|365-407|def _parse_frame_key(field: str) -> dict[str, Any] | None|
-|`_is_settable_key`|fn|priv|408-418|def _is_settable_key(field: str) -> bool|
-|`_matching_frames`|fn|priv|419-433|def _matching_frames(tag: Any, field: str) -> list[Any]|
-|`_text_value`|fn|priv|434-446|def _text_value(value: Any) -> str|
-|`_build_frame`|fn|priv|447-486|def _build_frame(spec: dict[str, Any], value: Any) -> Any|
-|`_set_frame_field`|fn|priv|487-512|def _set_frame_field(tag: Any, spec: dict[str, Any], fiel...|
-|`_tag_values`|fn|priv|513-544|def _tag_values(tag: Any | None) -> dict[str, Any]|
-|`_load_audio`|fn|priv|545-556|def _load_audio(path: str) -> Any|
-|`_normalise_relative_path`|fn|priv|557-569|def _normalise_relative_path(root: Path, audio_file: Path...|
-|`_scan_mp3_files`|fn|priv|570-589|def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]|
-|`_read_manifest`|fn|priv|590-593|def _read_manifest(|
-|`_write_manifest`|fn|priv|629-649|def _write_manifest(json_file: Path, manifest: dict[str, ...|
-|`_changed_fields`|fn|priv|650-667|def _changed_fields(old_tags: dict[str, Any], new_tags: d...|
-|`tags_extract`|fn|pub|668-672|def tags_extract(|
-|`_set_tag_field`|fn|priv|715-739|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
-|`update_tags`|fn|pub|740-744|def update_tags(|
+|`EYED3_LOG_LEVEL`|var|pub|46||
+|`SUPPORTED_TAG_FIELDS`|var|pub|62||
+|`ATTRIBUTE_FRAME_IDS`|var|pub|83||
+|`_normalise_value`|fn|priv|115-134|def _normalise_value(value: Any) -> Any|
+|`_normalise_frame_id`|fn|priv|135-149|def _normalise_frame_id(fid: bytes) -> bytes|
+|`_decode_id3_string`|fn|priv|150-169|def _decode_id3_string(data: bytes, encoding: bytes) -> str|
+|`_id3_encoding_for`|fn|priv|170-188|def _id3_encoding_for(*values: str) -> tuple[bytes, bytes]|
+|`_encode_id3_string`|fn|priv|189-207|def _encode_id3_string(encoding: bytes, value: str) -> bytes|
+|`_split_terminated`|fn|priv|208-223|def _split_terminated(data: bytes, delimiter: bytes) -> t...|
+|`_parse_sylt_payload`|fn|priv|224-262|def _parse_sylt_payload(payload: bytes) -> dict[str, Any]|
+|`_render_sylt_payload`|fn|priv|263-264|def _render_sylt_payload(|
+|`_frame_key`|fn|priv|304-337|def _frame_key(frame: Any) -> str | None|
+|`_frame_value`|fn|priv|338-365|def _frame_value(frame: Any) -> Any|
+|`_parse_frame_key`|fn|priv|366-408|def _parse_frame_key(field: str) -> dict[str, Any] | None|
+|`_is_settable_key`|fn|priv|409-419|def _is_settable_key(field: str) -> bool|
+|`_matching_frames`|fn|priv|420-434|def _matching_frames(tag: Any, field: str) -> list[Any]|
+|`_text_value`|fn|priv|435-447|def _text_value(value: Any) -> str|
+|`_build_frame`|fn|priv|448-487|def _build_frame(spec: dict[str, Any], value: Any) -> Any|
+|`_set_frame_field`|fn|priv|488-513|def _set_frame_field(tag: Any, spec: dict[str, Any], fiel...|
+|`_attribute_value`|fn|priv|514-541|def _attribute_value(tag: Any, field: str) -> Any|
+|`_tag_values`|fn|priv|542-574|def _tag_values(tag: Any | None) -> dict[str, Any]|
+|`_load_audio`|fn|priv|575-586|def _load_audio(path: str) -> Any|
+|`_normalise_relative_path`|fn|priv|587-599|def _normalise_relative_path(root: Path, audio_file: Path...|
+|`_scan_mp3_files`|fn|priv|600-619|def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]|
+|`_read_manifest`|fn|priv|620-623|def _read_manifest(|
+|`_write_manifest`|fn|priv|659-679|def _write_manifest(json_file: Path, manifest: dict[str, ...|
+|`_changed_fields`|fn|priv|680-697|def _changed_fields(old_tags: dict[str, Any], new_tags: d...|
+|`tags_extract`|fn|pub|698-702|def tags_extract(|
+|`_set_tag_field`|fn|priv|745-785|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
+|`update_tags`|fn|pub|786-790|def update_tags(|
 

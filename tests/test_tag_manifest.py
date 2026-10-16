@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import eyed3
+from eyed3.id3.frames import TextFrame
 
 from json2mp3.tag_manifest import tags_extract, update_tags
 
@@ -22,6 +23,13 @@ from json2mp3.tag_manifest import tags_extract, update_tags
 # * emitted by eyed3.id3.Genre when tag data is parsed during tags-extract.
 # */
 NON_STANDARD_GENRE = "Custom Fixture Genre"
+
+#/** @brief Defines a numeric genre string absent from the EyeD3 genre map.
+# * @details eyed3.id3.Genre.parse rejects this value with GenreException for
+# * both the tag.genre getter and the tag.genre setter, reproducing the
+# * tags-extract and update-tags crash fixed by the raw-frame fallback.
+# */
+NUMERIC_GENRE = "1985"
 
 
 class FakeTag:
@@ -155,6 +163,23 @@ def _write_real_mp3(root: Path, relative_path: str) -> Path:
     audio.tag.title = "Title"
     audio.tag.genre = NON_STANDARD_GENRE
     audio.tag.save()
+    return path
+
+
+def _write_untagged_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates a parseable MP3 fixture without any ID3 tag.
+    @details Writes eight deterministic silent MPEG-1 Layer III frames without
+    initializing an ID3 tag so callers control the exact frame set.
+    Complexity: O(frame-byte-count). Side effects: temporary fixture file write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created MP3 fixture path.
+    """
+    mpeg_frame = bytes([0xFF, 0xFB, 0x90, 0x00]) + b"\x00" * 413
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(mpeg_frame * 8)
     return path
 
 
@@ -356,3 +381,57 @@ def test_update_then_extract_reproduces_manifest_values(tmp_path: Path) -> None:
     assert json.loads(extracted_manifest.read_text(encoding="utf-8")) == expected_manifest
     assert audio.tag is not None
     assert audio.tag.save_calls == 1
+
+
+def test_numeric_genre_extract_and_update_round_trip(tmp_path: Path) -> None:
+    """
+    @brief Verifies numeric non-standard genre values extract and round trip.
+    @details Writes a real MP3 whose single TCON frame carries a numeric genre
+    string rejected by eyed3.id3.Genre.parse, extracts it through the default
+    EyeD3 loader, applies the extracted manifest back without rewriting the
+    fixture, applies the same genre to an untagged MP3, and re-extracts.
+    Complexity: O(F*T). Side effects: temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @return {None} No value.
+    @satisfies REQ-032, REQ-042, REQ-043, REQ-049, REQ-052
+    """
+    root = tmp_path / "music"
+    song = _write_untagged_mp3(root, "song.mp3")
+    audio = eyed3.load(str(song))
+    assert audio is not None
+    tag = audio.initTag()
+    assert tag is not None
+    tag.title = "Title"
+    tag.frame_set[b"TCON"] = TextFrame(b"TCON", text=NUMERIC_GENRE)
+    tag.save()
+    manifest = tmp_path / "tags.json"
+    song_bytes = song.read_bytes()
+
+    expected_status = 0
+    extracted_status = tags_extract(root, manifest)
+
+    assert extracted_status == expected_status
+    entries = json.loads(manifest.read_text(encoding="utf-8"))
+    assert entries[0]["tags"]["genre"] == NUMERIC_GENRE
+
+    applied_status = update_tags(root, manifest)
+
+    assert applied_status == expected_status
+    assert song.read_bytes() == song_bytes
+
+    fresh = _write_untagged_mp3(root, "fresh.mp3")
+    assert fresh.is_file()
+    fresh_manifest = tmp_path / "fresh.json"
+    fresh_manifest.write_text(
+        json.dumps([{"path": "fresh.mp3", "tags": {"genre": NUMERIC_GENRE}}]),
+        encoding="utf-8",
+    )
+
+    assert update_tags(root, fresh_manifest) == expected_status
+    reproduced = tmp_path / "reproduced.json"
+    assert tags_extract(root, reproduced) == expected_status
+    reproduced_tags = {
+        entry["path"]: entry["tags"]
+        for entry in json.loads(reproduced.read_text(encoding="utf-8"))
+    }
+    assert reproduced_tags["fresh.mp3"]["genre"] == NUMERIC_GENRE

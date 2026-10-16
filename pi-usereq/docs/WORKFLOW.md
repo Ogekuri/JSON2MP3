@@ -56,6 +56,7 @@
       - `_load_audio(...)`: load one MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
         - external: EyeD3 MP3 parse; module import sets the stdlib `eyed3` logger level to ERROR, filtering WARNING-level EyeD3 records (unsupported frames, non-standard genres) before stderr emission
       - `_tag_values(...)`: extract attribute fields plus every text-bearing ID3 frame [`src/json2mp3/tag_manifest.py`]
+        - `_attribute_value(...)`: read one attribute field, falling back to the covering ATTRIBUTE_FRAME_IDS frame when EyeD3 raises GenreException [`src/json2mp3/tag_manifest.py`]
         - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
         - `_normalise_frame_id(...)`: normalize ID3v2.2 frame identifiers to four characters [`src/json2mp3/tag_manifest.py`]
         - `_frame_key(...)`: compute the canonical manifest key for one frame [`src/json2mp3/tag_manifest.py`]
@@ -72,6 +73,7 @@
       - `_load_audio(...)`: load one target MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
         - external: EyeD3 MP3 parse and optional tag initialization; WARNING-level EyeD3 records filtered by the `eyed3` logger ERROR threshold configured at module import
       - `_tag_values(...)`: read current attribute and frame tag values [`src/json2mp3/tag_manifest.py`]
+        - `_attribute_value(...)`: read one attribute field, falling back to the covering ATTRIBUTE_FRAME_IDS frame when EyeD3 raises GenreException [`src/json2mp3/tag_manifest.py`]
         - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
         - `_normalise_frame_id(...)`: normalize ID3v2.2 frame identifiers to four characters [`src/json2mp3/tag_manifest.py`]
         - `_frame_key(...)`: compute the canonical manifest key for one frame [`src/json2mp3/tag_manifest.py`]
@@ -83,6 +85,7 @@
       - `_is_settable_key(...)`: validate one manifest key as an attribute or canonical frame key [`src/json2mp3/tag_manifest.py`]
         - `_parse_frame_key(...)`: parse one manifest key into a frame construction specification [`src/json2mp3/tag_manifest.py`]
       - `_set_tag_field(...)`: assign or clear one attribute or frame tag key [`src/json2mp3/tag_manifest.py`]
+        - GenreException raised by EyeD3 attribute setters for non-standard numeric genre strings falls back to covering-frame replacement through `_set_frame_field`
         - `_parse_frame_key(...)`: parse one manifest key into a frame construction specification [`src/json2mp3/tag_manifest.py`]
         - `_set_frame_field(...)`: replace or remove the frames bound to one canonical key [`src/json2mp3/tag_manifest.py`]
           - `_matching_frames(...)`: list frames whose canonical key equals one key [`src/json2mp3/tag_manifest.py`]

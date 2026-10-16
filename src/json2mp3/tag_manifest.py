@@ -19,6 +19,7 @@ from typing import Any
 
 import eyed3
 from eyed3.id3 import (
+    GenreException,
     LATIN1_ENCODING,
     UTF_16BE_ENCODING,
     UTF_16_ENCODING,
@@ -510,10 +511,39 @@ def _set_frame_field(tag: Any, spec: dict[str, Any], field: str, value: Any) -> 
     tag.frame_set[frame.id] = frame
 
 
+def _attribute_value(tag: Any, field: str) -> Any:
+    """
+    @brief Reads one supported EyeD3 tag attribute with raw-frame fallback.
+    @details Returns getattr(tag, field) when EyeD3 parses the attribute and
+    falls back to the raw value of the first ATTRIBUTE_FRAME_IDS covering frame
+    when EyeD3 raises GenreException for a stored value such as a numeric genre
+    string absent from the standard genre map. Complexity: O(1) normally, O(F)
+    frames on fallback. Side effects: none.
+    @param tag {Any} EyeD3 tag object.
+    @param field {str} Supported attribute field name from SUPPORTED_TAG_FIELDS.
+    @return {Any} Parsed attribute value, first covering-frame value, or null.
+    @satisfies REQ-049, REQ-052
+    """
+    try:
+        return getattr(tag, field, None)
+    except GenreException:
+        fid = ATTRIBUTE_FRAME_IDS.get(field)
+        frame_set = getattr(tag, "frame_set", None)
+        if fid is None or frame_set is None:
+            return None
+        for frame_fid, frames in frame_set.items():
+            if _normalise_frame_id(frame_fid) != fid:
+                continue
+            for frame in frames:
+                return _frame_value(frame)
+        return None
+
+
 def _tag_values(tag: Any | None) -> dict[str, Any]:
     """
     @brief Extracts all manifest tag values from one EyeD3 tag object.
-    @details Reads each SUPPORTED_TAG_FIELDS attribute once, then scans the tag
+    @details Reads each SUPPORTED_TAG_FIELDS attribute once through the
+    _attribute_value GenreException raw-frame fallback, then scans the tag
     frame set and emits canonical keys for every additional text-bearing frame,
     including TXXX, WXXX, COMM, USLT, USER, and raw SYLT frames; binary frames
     are omitted. Complexity: O(T + F). Side effects: none.
@@ -525,7 +555,7 @@ def _tag_values(tag: Any | None) -> dict[str, Any]:
         return {}
     values: dict[str, Any] = {}
     for field in SUPPORTED_TAG_FIELDS:
-        value = _normalise_value(getattr(tag, field, None))
+        value = _normalise_value(_attribute_value(tag, field))
         if value is not None:
             values[field] = value
     frame_set = getattr(tag, "frame_set", None)
@@ -717,20 +747,36 @@ def _set_tag_field(tag: Any, field: str, value: Any) -> None:
     @brief Assigns or clears one manifest tag key on an EyeD3 tag object.
     @details Routes supported attribute fields through EyeD3 attribute setters,
     converting track and disc lists to tuples, and routes canonical frame keys
-    through frame replacement or removal. Complexity: O(F) frames. Side effects:
-    mutates tag.
+    through frame replacement or removal. Attribute writes rejected by EyeD3
+    with GenreException for non-standard numeric genre strings fall back to
+    replacing the covering ATTRIBUTE_FRAME_IDS frame with the literal string
+    value. Complexity: O(F) frames. Side effects: mutates tag.
     @param tag {Any} Mutable EyeD3 tag object.
     @param field {str} Supported attribute name or canonical frame key.
     @param value {Any} Manifest value or null for removal.
     @return {None} No value.
     @raises ValueError If a frame value shape is invalid.
+    @note The GenreException fallback writes str(value) as raw covering-frame
+    text; null values never reach it because EyeD3 removes attributes without
+    parsing.
     @satisfies REQ-042, REQ-043, REQ-044, REQ-053
     """
     if field in SUPPORTED_TAG_FIELDS:
-        if field in {"track_num", "disc_num"} and isinstance(value, list):
-            setattr(tag, field, tuple(value))
-        else:
-            setattr(tag, field, value)
+        attribute_value = (
+            tuple(value)
+            if field in {"track_num", "disc_num"} and isinstance(value, list)
+            else value
+        )
+        try:
+            setattr(tag, field, attribute_value)
+        except GenreException:
+            fid = ATTRIBUTE_FRAME_IDS[field]
+            _set_frame_field(
+                tag,
+                {"fid": fid},
+                fid.decode("ascii"),
+                str(attribute_value),
+            )
         return
     spec = _parse_frame_key(field)
     if spec is not None:
