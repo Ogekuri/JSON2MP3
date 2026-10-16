@@ -93,7 +93,7 @@
           - `_build_frame(...)`: construct one EyeD3 frame from a key specification and value [`src/json2mp3/tag_manifest.py`]
             - `_text_value(...)`: coerce one manifest scalar into a frame text string [`src/json2mp3/tag_manifest.py`]
             - `_render_sylt_payload(...)`: serialize one SYLT manifest value into raw payload bytes [`src/json2mp3/tag_manifest.py`]
-              - `_id3_encoding_for(...)`: select the deterministic ID3 encoding for strings [`src/json2mp3/tag_manifest.py`]
+              - `_id3_encoding_for(...)`: select Latin-1 or UTF-8 with a one-byte terminator for deterministic SYLT serialization [`src/json2mp3/tag_manifest.py`]
               - `_encode_id3_string(...)`: encode one string with a selected ID3 encoding [`src/json2mp3/tag_manifest.py`]
         - external: EyeD3 tag save when a file has differences; binary frames such as attached pictures are never removed
     - `_run_tool_command(...)`: execute or print the `uv` tool install/uninstall command [`src/json2mp3/core.py`]

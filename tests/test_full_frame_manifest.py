@@ -44,7 +44,13 @@ _SYLT_PAYLOAD = (
 )
 
 
-def _write_frame_mp3(root: Path, relative_path: str) -> Path:
+def _write_frame_mp3(
+    root: Path,
+    relative_path: str,
+    *,
+    sylt_encoding: bytes = b"\x00",
+    sylt_timestamp_format: int = 2,
+) -> Path:
     """
     @brief Creates one MP3 fixture carrying attribute, text, and binary frames.
     @details Writes deterministic MPEG frames, then attaches title, TXXX:Keep,
@@ -53,6 +59,8 @@ def _write_frame_mp3(root: Path, relative_path: str) -> Path:
     O(frame-byte-count). Side effects: temporary fixture file write.
     @param root {Path} Temporary fixture root.
     @param relative_path {str} Relative MP3 fixture path.
+    @param sylt_encoding {bytes} SYLT ID3 text-encoding byte.
+    @param sylt_timestamp_format {int} SYLT timestamp format byte.
     @return {Path} Created MP3 fixture path.
     """
     path = root / relative_path
@@ -72,10 +80,32 @@ def _write_frame_mp3(root: Path, relative_path: str) -> Path:
         description="lr", lang=b"ita", text="testo"
     )
     sylt = Frame(b"SYLT")
-    sylt.data = _SYLT_PAYLOAD
+    sylt.data = (
+        sylt_encoding
+        + _SYLT_PAYLOAD[1:4]
+        + bytes([sylt_timestamp_format, _SYLT_PAYLOAD[5]])
+        + _SYLT_PAYLOAD[6:]
+    )
     tag.frame_set[b"SYLT"] = sylt
     tag.images.set(3, b"\x89PNG-fake", "image/png", description="cover")
     tag.save()
+    return path
+
+
+def _write_untagged_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates an MP3 fixture without an ID3 tag.
+    @details Writes deterministic MPEG frames without initializing an ID3 tag so
+    update_tags creates each manifest field. Complexity: O(frame-byte-count).
+    Side effects: temporary fixture file write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created untagged MP3 fixture path.
+    @satisfies TST-009, TST-010
+    """
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_MPEG_FRAME * 8)
     return path
 
 
@@ -127,6 +157,55 @@ def test_tags_extract_includes_all_text_frames_and_omits_binary(
     }
     assert "APIC" not in tags
     assert not any(key.startswith("APIC") for key in tags)
+
+
+def test_tags_extract_and_update_round_trip_all_sylt_timestamp_formats(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief Verifies SYLT timestamp-format round trips across separate MP3 trees.
+    @details Extracts two tagged source MP3 fixtures using timestamp formats one
+    and two, restores their manifests to untagged same-path targets, and asserts
+    byte-stable JSON manifest equivalence after target extraction. Complexity:
+    O(F*(T+F)). Side effects: temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @return {None} No value.
+    @satisfies REQ-049, REQ-052, REQ-055, TST-009, TST-010
+    """
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    format_one_source = _write_frame_mp3(
+        source_root,
+        "format-one.mp3",
+        sylt_encoding=b"\x03",
+        sylt_timestamp_format=1,
+    )
+    source_audio = eyed3.load(str(format_one_source))
+    assert source_audio is not None
+    assert source_audio.tag is not None
+    source_sylt = source_audio.tag.frame_set[b"SYLT"][0]
+    source_sylt.data = source_sylt.data.replace(
+        b"second line", "\u266a".encode("utf-8")
+    )
+    source_audio.tag.save()
+    _write_frame_mp3(source_root, "nested/format-two.mp3", sylt_timestamp_format=2)
+    _write_untagged_mp3(target_root, "format-one.mp3")
+    _write_untagged_mp3(target_root, "nested/format-two.mp3")
+    source_manifest = tmp_path / "source.json"
+    reproduced_manifest = tmp_path / "reproduced.json"
+
+    expected_status = 0
+    extracted_status = tags_extract(source_root, source_manifest)
+    updated_status = update_tags(target_root, source_manifest)
+    reproduced_status = tags_extract(target_root, reproduced_manifest)
+
+    assert extracted_status == expected_status
+    assert updated_status == expected_status
+    assert reproduced_status == expected_status
+    assert (
+        reproduced_manifest.read_text(encoding="utf-8")
+        == source_manifest.read_text(encoding="utf-8")
+    )
 
 
 def test_update_tags_creates_updates_and_removes_frame_keys(

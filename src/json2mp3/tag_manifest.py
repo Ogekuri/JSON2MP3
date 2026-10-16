@@ -170,8 +170,9 @@ def _decode_id3_string(data: bytes, encoding: bytes) -> str:
 def _id3_encoding_for(*values: str) -> tuple[bytes, bytes]:
     """
     @brief Selects the deterministic ID3 encoding for a set of strings.
-    @details Chooses latin-1 when every value is latin-1 encodable and UTF-16
-    with BOM otherwise; both codecs are valid for ID3v2.3 and ID3v2.4. Encoding
+    @details Chooses latin-1 when every value is latin-1 encodable and UTF-8
+    otherwise. Both codecs use a one-byte terminator, preventing UTF-16
+    terminator overlap with low-order text bytes during SYLT parsing. Encoding
     selection is content-deterministic and independent of stored bytes.
     Complexity: O(total-characters). Side effects: none.
     @param values {str} Strings that share one frame encoding.
@@ -182,7 +183,7 @@ def _id3_encoding_for(*values: str) -> tuple[bytes, bytes]:
         for value in values:
             value.encode("latin-1")
     except UnicodeEncodeError:
-        return UTF_16_ENCODING, b"\x00\x00"
+        return UTF_8_ENCODING, b"\x00"
     return LATIN1_ENCODING, b"\x00"
 
 
