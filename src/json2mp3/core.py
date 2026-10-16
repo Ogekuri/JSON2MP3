@@ -30,6 +30,12 @@ RED = "\033[91m"
 RESET = "\033[0m"
 
 
+#/**
+# * @brief Stores the full CLI help screen rendered by main.
+# * @details Documents management commands and every data command with its manifest
+# * semantics; rendered verbatim for no-argument and --help invocations.
+# * @satisfies REQ-009, REQ-050
+# */
 HELP_TEXT = f"""Usage: {PROGRAM} [command] [options] ({__version__})
 
 Management Commands:
@@ -40,7 +46,9 @@ Management Commands:
   --help      - Print the full help screen or the help text of a specific command.
 
 Commands:
-  ...
+  sync          - Write Mutagen ID3 frames from a track manifest to MP3 files.
+  tags-extract  - Extract EyeD3 tags of nested MP3 files into a JSON manifest.
+  update-tags   - Apply EyeD3 tag values from a JSON manifest to MP3 files.
 """
 
 
@@ -266,16 +274,29 @@ def _sync_parser() -> argparse.ArgumentParser:
     return parser
 
 
+#/**
+# * @brief Stores per-command descriptions rendered by command-specific help.
+# * @details Keys mirror dispatched command tokens; values feed argparse epilogues.
+# * @satisfies REQ-010, REQ-050
+# */
+TAG_COMMAND_DESCRIPTIONS = {
+    "sync": "Write Mutagen ID3 frames from a track manifest to MP3 files.",
+    "tags-extract": "Extract EyeD3 tags of nested MP3 files into a JSON manifest.",
+    "update-tags": "Apply EyeD3 tag values from a JSON manifest to MP3 files.",
+}
+
+
 def _tag_command_parser(command: str) -> argparse.ArgumentParser:
     """
     @brief Creates the shared parser for an EyeD3 manifest command.
-    @details Defines positional MP3-root and JSON-manifest arguments without
-    introducing option-dependent behavior. Complexity: O(1). Side effects: none.
+    @details Defines positional MP3-root and JSON-manifest arguments plus the
+    command description consumed by command-specific help. Complexity: O(1).
+    Side effects: none.
     @param command {str} CLI command name.
     @return {argparse.ArgumentParser} Configured parser instance.
     @satisfies REQ-032, REQ-040
     """
-    parser = argparse.ArgumentParser(prog=f"{PROGRAM} {command}")
+    parser = argparse.ArgumentParser(prog=f"{PROGRAM} {command}", description=TAG_COMMAND_DESCRIPTIONS[command])
     parser.add_argument("mp3_root", help="recursive MP3 root directory")
     parser.add_argument("json_file", help="JSON tag manifest path")
     return parser

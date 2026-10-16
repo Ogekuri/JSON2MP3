@@ -64,7 +64,7 @@ from .core import main
 
 ---
 
-# core.py | Python | 327L | 27 symbols | 17 imports | 16 comments
+# core.py | Python | 348L | 28 symbols | 17 imports | 27 comments
 > Path: `src/json2mp3/core.py`
 
 ## Imports
@@ -101,42 +101,47 @@ from mutagen.id3._util import ID3NoHeaderError
 - var `GREEN = "\033[92m"` (L28)
 - var `RED = "\033[91m"` (L29)
 - var `RESET = "\033[0m"` (L30)
-### fn `def _human_timestamp(timestamp: float) -> str` `priv` (L47-51)
+### fn `def _human_timestamp(timestamp: float) -> str` `priv` (L55-59)
+- @brief Stores the full CLI help screen rendered by main.
+- @details Documents management commands and every data command with its manifest
+semantics; rendered verbatim for no-argument and --help invocations.
+- @satisfies REQ-009, REQ-050
 
-### fn `def _cache_path() -> Path` `priv` (L52-56)
+### fn `def _cache_path() -> Path` `priv` (L60-64)
 
-### fn `def _write_cache(delay: int, now: float | None = None) -> None` `priv` (L57-71)
+### fn `def _write_cache(delay: int, now: float | None = None) -> None` `priv` (L65-79)
 
-### fn `def _cache_is_active(now: float | None = None) -> bool` `priv` (L72-82)
+### fn `def _cache_is_active(now: float | None = None) -> bool` `priv` (L80-90)
 
-### fn `def _version_key(version: str) -> tuple[int, ...] | None` `priv` (L83-91)
+### fn `def _version_key(version: str) -> tuple[int, ...] | None` `priv` (L91-99)
 
-### fn `def _is_newer_version(candidate: str, installed: str) -> bool` `priv` (L92-101)
+### fn `def _is_newer_version(candidate: str, installed: str) -> bool` `priv` (L100-109)
 
-### fn `def _print_coloured(colour: str, message: str) -> None` `priv` (L102-105)
+### fn `def _print_coloured(colour: str, message: str) -> None` `priv` (L110-113)
 
-### fn `def _fetch_latest_version(opener: Callable[..., Any] | None = None) -> str` `priv` (L106-120)
+### fn `def _fetch_latest_version(opener: Callable[..., Any] | None = None) -> str` `priv` (L114-128)
 
-### fn `def check_for_update(*, force: bool = False, opener: Callable[..., Any] | None = None) -> bool` (L121-155)
+### fn `def check_for_update(*, force: bool = False, opener: Callable[..., Any] | None = None) -> bool` (L129-163)
 
-### fn `def _run_tool_command(action: str) -> int` `priv` (L156-175)
+### fn `def _run_tool_command(action: str) -> int` `priv` (L164-183)
 
-### fn `def _load_tracks(json_file: Path) -> list[dict[str, Any]]` `priv` (L176-195)
+### fn `def _load_tracks(json_file: Path) -> list[dict[str, Any]]` `priv` (L184-203)
 
-### fn `def _write_id3_tags(audio_file: Path, tags: dict[str, Any]) -> None` `priv` (L196-224)
+### fn `def _write_id3_tags(audio_file: Path, tags: dict[str, Any]) -> None` `priv` (L204-232)
 
-### fn `def sync_from_json(json_filename: str, *, dry_run: bool = False) -> int` (L225-261)
+### fn `def sync_from_json(json_filename: str, *, dry_run: bool = False) -> int` (L233-269)
 
-### fn `def _sync_parser() -> argparse.ArgumentParser` `priv` (L262-268)
+### fn `def _sync_parser() -> argparse.ArgumentParser` `priv` (L270-276)
 
-### fn `def _tag_command_parser(command: str) -> argparse.ArgumentParser` `priv` (L269-283)
+- var `TAG_COMMAND_DESCRIPTIONS = {` (L282)
+### fn `def _tag_command_parser(command: str) -> argparse.ArgumentParser` `priv` (L289-304)
 - @brief Creates the shared parser for an EyeD3 manifest command.
-- @details Defines positional MP3-root and JSON-manifest arguments without introducing option-dependent behavior. Complexity: O(1). Side effects: none.
+- @details Defines positional MP3-root and JSON-manifest arguments plus the command description consumed by command-specific help. Complexity: O(1). Side effects: none.
 - @param command {str} CLI command name.
 - @return {argparse.ArgumentParser} Configured parser instance.
 - @satisfies REQ-032, REQ-040
 
-### fn `def main(argv: Sequence[str] | None = None) -> int` (L284-328)
+### fn `def main(argv: Sequence[str] | None = None) -> int` (L305-349)
 - @brief Dispatches command-line arguments to management and tag operations.
 - @details Performs the existing release check before routing recognized command sequences; delegates EyeD3 manifest commands without altering sync behavior. Complexity: O(1) excluding delegated operations. Side effects: stdout, network, filesystem, and optional subprocess interactions.
 - @param argv {Sequence[str] | None} Explicit CLI tokens or null for sys.argv.
@@ -157,22 +162,23 @@ from mutagen.id3._util import ID3NoHeaderError
 |`GREEN`|var|pub|28||
 |`RED`|var|pub|29||
 |`RESET`|var|pub|30||
-|`_human_timestamp`|fn|priv|47-51|def _human_timestamp(timestamp: float) -> str|
-|`_cache_path`|fn|priv|52-56|def _cache_path() -> Path|
-|`_write_cache`|fn|priv|57-71|def _write_cache(delay: int, now: float | None = None) ->...|
-|`_cache_is_active`|fn|priv|72-82|def _cache_is_active(now: float | None = None) -> bool|
-|`_version_key`|fn|priv|83-91|def _version_key(version: str) -> tuple[int, ...] | None|
-|`_is_newer_version`|fn|priv|92-101|def _is_newer_version(candidate: str, installed: str) -> ...|
-|`_print_coloured`|fn|priv|102-105|def _print_coloured(colour: str, message: str) -> None|
-|`_fetch_latest_version`|fn|priv|106-120|def _fetch_latest_version(opener: Callable[..., Any] | No...|
-|`check_for_update`|fn|pub|121-155|def check_for_update(*, force: bool = False, opener: Call...|
-|`_run_tool_command`|fn|priv|156-175|def _run_tool_command(action: str) -> int|
-|`_load_tracks`|fn|priv|176-195|def _load_tracks(json_file: Path) -> list[dict[str, Any]]|
-|`_write_id3_tags`|fn|priv|196-224|def _write_id3_tags(audio_file: Path, tags: dict[str, Any...|
-|`sync_from_json`|fn|pub|225-261|def sync_from_json(json_filename: str, *, dry_run: bool =...|
-|`_sync_parser`|fn|priv|262-268|def _sync_parser() -> argparse.ArgumentParser|
-|`_tag_command_parser`|fn|priv|269-283|def _tag_command_parser(command: str) -> argparse.Argumen...|
-|`main`|fn|pub|284-328|def main(argv: Sequence[str] | None = None) -> int|
+|`_human_timestamp`|fn|priv|55-59|def _human_timestamp(timestamp: float) -> str|
+|`_cache_path`|fn|priv|60-64|def _cache_path() -> Path|
+|`_write_cache`|fn|priv|65-79|def _write_cache(delay: int, now: float | None = None) ->...|
+|`_cache_is_active`|fn|priv|80-90|def _cache_is_active(now: float | None = None) -> bool|
+|`_version_key`|fn|priv|91-99|def _version_key(version: str) -> tuple[int, ...] | None|
+|`_is_newer_version`|fn|priv|100-109|def _is_newer_version(candidate: str, installed: str) -> ...|
+|`_print_coloured`|fn|priv|110-113|def _print_coloured(colour: str, message: str) -> None|
+|`_fetch_latest_version`|fn|priv|114-128|def _fetch_latest_version(opener: Callable[..., Any] | No...|
+|`check_for_update`|fn|pub|129-163|def check_for_update(*, force: bool = False, opener: Call...|
+|`_run_tool_command`|fn|priv|164-183|def _run_tool_command(action: str) -> int|
+|`_load_tracks`|fn|priv|184-203|def _load_tracks(json_file: Path) -> list[dict[str, Any]]|
+|`_write_id3_tags`|fn|priv|204-232|def _write_id3_tags(audio_file: Path, tags: dict[str, Any...|
+|`sync_from_json`|fn|pub|233-269|def sync_from_json(json_filename: str, *, dry_run: bool =...|
+|`_sync_parser`|fn|priv|270-276|def _sync_parser() -> argparse.ArgumentParser|
+|`TAG_COMMAND_DESCRIPTIONS`|var|pub|282||
+|`_tag_command_parser`|fn|priv|289-304|def _tag_command_parser(command: str) -> argparse.Argumen...|
+|`main`|fn|pub|305-349|def main(argv: Sequence[str] | None = None) -> int|
 
 
 ---

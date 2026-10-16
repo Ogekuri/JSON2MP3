@@ -25,7 +25,9 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 │   └── json2mp3/
 │       ├── __init__.py
 │       ├── __main__.py
-│       └── core.py
+│       ├── core.py
+│       └── tag_manifest.py
+├── tests/
 └── pi-usereq/
     └── docs/
         └── REQUIREMENTS.md
@@ -118,6 +120,8 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **REQ-047**: MUST print an `update-tags` summary containing updated, unchanged, and error file counts.
 - **REQ-048**: MUST normalize manifest paths using POSIX separators relative to the supplied MP3 root.
 - **REQ-049**: MUST round-trip supported EyeD3 scalar tag values through extraction and update without changing an already matching file.
+- **REQ-050**: MUST list `sync`, `tags-extract`, and `update-tags` command synopses in the full help text.
+- **REQ-051**: MUST document installation, every CLI command, and both manifest formats in `README.md`.
 
 ## 4. Test Requirements
 
@@ -156,3 +160,5 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 | REQ-025 through REQ-030 | `src/json2mp3/core.py` `_write_id3_tags` — `frames` map, `COMM`, `ID3NoHeaderError`, and `ID3.save`. |
 | TST-001 through TST-005 | Derived verification procedures traceable to the cited executable functions; no existing test source is present. |
 | PRJ-006, PRJ-007, CTN-004 through CTN-006, DES-011, DES-012, REQ-032 through REQ-049, TST-006 through TST-009 | User request — `tags-extract` and `update-tags` command, JSON reconciliation, EyeD3, and round-trip test requirements. |
+| REQ-050 | `src/json2mp3/core.py` `HELP_TEXT` — command synopses rendered by `main`. |
+| REQ-051 | `README.md` — install, command, and manifest-format documentation. |
