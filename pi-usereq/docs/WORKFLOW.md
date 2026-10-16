@@ -4,7 +4,7 @@
 
 | ID | Type | Parent | Role | Entrypoint(s) | Defining File(s) |
 |---|---|---|---|---|---|
-| PROC:main | process | - | Single-process CLI runtime performing update checks, management commands, and ID3 synchronisation. | `main` (console scripts `json2mp3` and `j2m`; `python -m json2mp3`; `python -m j2m`) | `src/json2mp3/core.py`, `src/json2mp3/__main__.py`, `src/j2m/__main__.py`, `src/j2m/core.py` |
+| PROC:main | process | - | Single-process CLI runtime performing update checks, management commands, Mutagen sync, and EyeD3 manifest extraction/update. | `main` (console scripts `json2mp3` and `j2m`; `python -m json2mp3`; `python -m j2m`) | `src/json2mp3/core.py`, `src/json2mp3/tag_manifest.py`, `src/json2mp3/__main__.py`, `src/j2m/__main__.py`, `src/j2m/core.py` |
 | PROC:uv-tool | process | PROC:main | Short-lived child process executing the external `uv` tool manager. | external `uv` executable; no internal entrypoint | (no internal definitions under `src/`) |
 
 - PROC:main: no explicit threads detected.
@@ -47,6 +47,27 @@
         - external: stdout write
     - `_sync_parser(...)`: build the argparse parser for the `sync` command [`src/json2mp3/core.py`]
       - external: argparse help rendering or argument parsing (`--help sync` and `sync` branches)
+    - `_tag_command_parser(...)`: build positional parsers for `tags-extract` and `update-tags` [`src/json2mp3/core.py`]
+      - external: argparse help rendering and argument parsing
+    - `tags_extract(...)`: recursively reconcile EyeD3-extracted MP3 tags into a JSON array [`src/json2mp3/tag_manifest.py`]
+      - `_read_manifest(...)`: load existing JSON array entries into a normalized path index [`src/json2mp3/tag_manifest.py`]
+      - `_scan_mp3_files(...)`: recursively discover sorted `.mp3` paths [`src/json2mp3/tag_manifest.py`]
+        - `_normalise_relative_path(...)`: create a POSIX-relative path key [`src/json2mp3/tag_manifest.py`]
+      - `_load_audio(...)`: load one MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
+        - external: EyeD3 MP3 parse
+      - `_tag_values(...)`: extract supported non-null scalar tag fields [`src/json2mp3/tag_manifest.py`]
+        - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
+      - `_changed_fields(...)`: identify changed supported tag names [`src/json2mp3/tag_manifest.py`]
+      - `_write_manifest(...)`: serialize the reconciled sorted JSON array [`src/json2mp3/tag_manifest.py`]
+        - external: JSON file write
+    - `update_tags(...)`: reconcile EyeD3 MP3 tags from a JSON array [`src/json2mp3/tag_manifest.py`]
+      - `_read_manifest(...)`: load source JSON array entries into a normalized path index [`src/json2mp3/tag_manifest.py`]
+      - `_load_audio(...)`: load one target MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
+        - external: EyeD3 MP3 parse and optional tag initialization
+      - `_tag_values(...)`: read current supported field values [`src/json2mp3/tag_manifest.py`]
+        - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
+      - `_set_tag_field(...)`: assign or clear one supported EyeD3 field [`src/json2mp3/tag_manifest.py`]
+        - external: EyeD3 tag save when a file has differences
     - `_run_tool_command(...)`: execute or print the `uv` tool install/uninstall command [`src/json2mp3/core.py`]
       - external: platform detection; child-process spawn (`subprocess.run`) into PROC:uv-tool with inherited stdio
       - `_print_coloured(...)`: print the bright-red message when the child cannot be spawned [`src/json2mp3/core.py`]
@@ -68,8 +89,8 @@
 - External Boundaries:
   - network: HTTPS GET to the GitHub latest-release endpoint with a 2-second timeout.
   - filesystem: version-check cache read/write under `$HOME/.cache/json2mp3/`.
-  - filesystem: JSON manifest read; target MP3 read/write through mutagen.
-  - OS: platform detection, child-process spawn of `uv`, and stdout writes.
+  - filesystem: JSON manifest read/write; target MP3 read/write through Mutagen and EyeD3.
+  - OS: platform detection, child-process spawn of `uv`, directory traversal, and stdout writes.
 
 ### PROC:uv-tool
 

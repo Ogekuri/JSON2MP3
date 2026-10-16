@@ -15,6 +15,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from . import __version__
+from .tag_manifest import tags_extract, update_tags
 
 PROGRAM = "json2mp3"
 OWNER = "Ogekuri"
@@ -195,7 +196,9 @@ def _load_tracks(json_file: Path) -> list[dict[str, Any]]:
 def _write_id3_tags(audio_file: Path, tags: dict[str, Any]) -> None:
     """Write supported JSON metadata to the target MP3's ID3 tag."""
     try:
-        from mutagen.id3 import COMM, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, ID3, ID3NoHeaderError
+        from mutagen.id3 import ID3
+        from mutagen.id3._frames import COMM, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK
+        from mutagen.id3._util import ID3NoHeaderError
     except ImportError as error:  # pragma: no cover - protects direct source execution
         raise RuntimeError("ID3 support requires the 'mutagen' package") from error
 
@@ -263,17 +266,45 @@ def _sync_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _tag_command_parser(command: str) -> argparse.ArgumentParser:
+    """
+    @brief Creates the shared parser for an EyeD3 manifest command.
+    @details Defines positional MP3-root and JSON-manifest arguments without
+    introducing option-dependent behavior. Complexity: O(1). Side effects: none.
+    @param command {str} CLI command name.
+    @return {argparse.ArgumentParser} Configured parser instance.
+    @satisfies REQ-032, REQ-040
+    """
+    parser = argparse.ArgumentParser(prog=f"{PROGRAM} {command}")
+    parser.add_argument("mp3_root", help="recursive MP3 root directory")
+    parser.add_argument("json_file", help="JSON tag manifest path")
+    return parser
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the command-line interface and return its process exit status."""
+    """
+    @brief Dispatches command-line arguments to management and tag operations.
+    @details Performs the existing release check before routing recognized command
+    sequences; delegates EyeD3 manifest commands without altering sync behavior.
+    Complexity: O(1) excluding delegated operations. Side effects: stdout, network,
+    filesystem, and optional subprocess interactions.
+    @param argv {Sequence[str] | None} Explicit CLI tokens or null for sys.argv.
+    @return {int} Delegated command status or CLI validation status.
+    @satisfies PRJ-003, PRJ-006, PRJ-007, REQ-001, REQ-032, REQ-040
+    """
     arguments = list(sys.argv[1:] if argv is None else argv)
     check_for_update(force="--ver" in arguments or "--version" in arguments)
 
     if not arguments or arguments == ["--help"]:
         print(HELP_TEXT, end="")
         return 0
-    if arguments[0] == "--help" and len(arguments) == 2 and arguments[1] == "sync":
-        _sync_parser().print_help()
-        return 0
+    if arguments[0] == "--help" and len(arguments) == 2:
+        if arguments[1] == "sync":
+            _sync_parser().print_help()
+            return 0
+        if arguments[1] in {"tags-extract", "update-tags"}:
+            _tag_command_parser(arguments[1]).print_help()
+            return 0
     if arguments in (["--ver"], ["--version"]):
         print(__version__)
         return 0
@@ -284,6 +315,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if arguments[0] == "sync":
         parsed = _sync_parser().parse_args(arguments[1:])
         return sync_from_json(parsed.json_file, dry_run=parsed.dry_run)
+    if arguments[0] == "tags-extract":
+        parsed = _tag_command_parser("tags-extract").parse_args(arguments[1:])
+        return tags_extract(parsed.mp3_root, parsed.json_file)
+    if arguments[0] == "update-tags":
+        parsed = _tag_command_parser("update-tags").parse_args(arguments[1:])
+        return update_tags(parsed.mp3_root, parsed.json_file)
 
     _print_coloured(RED, f"Unknown command: {' '.join(arguments)}")
     print(HELP_TEXT, end="")

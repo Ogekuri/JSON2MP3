@@ -25,6 +25,7 @@ classifiers = [
 ]
 
 dependencies = [
+  "eyed3>=0.9.9",
   "mutagen>=1.47",
 ]
 

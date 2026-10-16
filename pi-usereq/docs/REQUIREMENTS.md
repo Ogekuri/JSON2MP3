@@ -9,7 +9,7 @@
 
 ### 1.2 Project Scope
 
-json2mp3 0.0.0 is a Python CLI that writes selected ID3 metadata to files described by a JSON manifest. The documented scope is the implemented `src/` behavior; no unit-test source exists in `tests/`.
+json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manifests. The documented scope is the implemented `src/` behavior and the `tags-extract` and `update-tags` commands.
 
 ### 1.3 Repository Structure
 
@@ -40,13 +40,17 @@ json2mp3 0.0.0 is a Python CLI that writes selected ID3 metadata to files descri
 - **PRJ-003**: MUST provide CLI management commands for help, version display, upgrade, and uninstall.
 - **PRJ-004**: MUST check the GitHub latest-release endpoint before command dispatch unless an active version-check cache suppresses it.
 - **PRJ-005**: MUST retain `j2m` as a compatibility package that delegates its entry point to `json2mp3.core.main`.
+- **PRJ-006**: MUST extract ID3 metadata from recursive MP3 directory scans into a JSON manifest.
+- **PRJ-007**: MUST synchronize MP3 ID3 metadata from a JSON manifest against a supplied base directory.
 
 ### 2.2 Project Constraints
 
 - **CTN-001**: MUST require Python version 3.11 or later.
 - **CTN-002**: MUST declare `mutagen>=1.47` as the runtime dependency for ID3 frame operations.
 - **CTN-003**: MUST use setuptools package discovery rooted at `src` for the `json2mp3` and `j2m` packages.
-- **CTN-004**: MUST treat missing `tests/` as absent unit-test coverage evidence, not as evidence of tested behavior.
+- **CTN-004**: MUST use the `eyed3` module for `tags-extract` and `update-tags` ID3 reads and writes.
+- **CTN-005**: MUST retain the existing `sync` command and its Mutagen dependency unchanged.
+- **CTN-006**: MUST provide automated tests for extraction/update round trips and tag additions, changes, and removals.
 
 ## 3. Requirements
 
@@ -60,6 +64,8 @@ json2mp3 0.0.0 is a Python CLI that writes selected ID3 metadata to files descri
 - **DES-008**: MUST render cache human timestamps as timezone-aware local ISO 8601 values with second precision.
 - **DES-009**: MUST emit ANSI bright-green update messages and ANSI bright-red error messages through the CLI output path.
 - **DES-010**: MUST record no explicit performance optimizations identified because source contains no optimization-specific implementation evidence.
+- **DES-011**: MUST represent each extracted file as a JSON object containing a normalized relative `path` and an ID3 `tags` object.
+- **DES-012**: MUST serialize tag manifests as a JSON array ordered by normalized relative file path.
 
 ### 3.2 Functions
 
@@ -94,6 +100,24 @@ json2mp3 0.0.0 is a Python CLI that writes selected ID3 metadata to files descri
 - **REQ-029**: MUST silently ignore manifest tag keys outside the supported fields.
 - **REQ-030**: MUST create an empty ID3 tag when Mutagen reports that an existing target file lacks an ID3 header.
 - **REQ-031**: MUST return two after reporting a manifest read, filesystem, JSON-parse, or root-shape error.
+- **REQ-032**: MUST accept `tags-extract <mp3_root> <json_file>` and recursively select files with a case-insensitive `.mp3` suffix.
+- **REQ-033**: MUST create a new JSON array manifest when `tags-extract` receives a nonexistent destination file.
+- **REQ-034**: MUST replace each existing manifest entry matching a scanned normalized relative path with the current extracted tag object.
+- **REQ-035**: MUST remove existing manifest entries whose normalized relative paths are absent from the recursive scan.
+- **REQ-036**: MUST append an extracted manifest entry for each scanned path absent from the existing manifest.
+- **REQ-037**: MUST print changed field names only for existing manifest entries whose extracted tag values differ.
+- **REQ-038**: MUST omit per-file detail output for newly added or removed manifest entries during `tags-extract`.
+- **REQ-039**: MUST print a `tags-extract` summary containing updated, added, and removed file counts.
+- **REQ-040**: MUST accept `update-tags <mp3_root> <json_file>` and resolve every manifest path relative to `mp3_root`.
+- **REQ-041**: MUST report each manifest path whose target MP3 file does not exist and continue remaining entries.
+- **REQ-042**: MUST update an existing ID3 field only when its value differs from the corresponding manifest tag value.
+- **REQ-043**: MUST add an ID3 field present in a manifest tag object and absent from the target file.
+- **REQ-044**: MUST remove a supported ID3 field present in the target file and absent from the manifest tag object.
+- **REQ-045**: MUST print changed, added, and removed field names for every processed `update-tags` manifest entry.
+- **REQ-046**: MUST omit unchanged field names from `update-tags` detail output.
+- **REQ-047**: MUST print an `update-tags` summary containing updated, unchanged, and error file counts.
+- **REQ-048**: MUST normalize manifest paths using POSIX separators relative to the supplied MP3 root.
+- **REQ-049**: MUST round-trip supported EyeD3 scalar tag values through extraction and update without changing an already matching file.
 
 ## 4. Test Requirements
 
@@ -102,10 +126,14 @@ json2mp3 0.0.0 is a Python CLI that writes selected ID3 metadata to files descri
 - **TST-003**: MUST verify REQ-005 and REQ-006 by injecting successful and failing release openers and asserting respective cache durations.
 - **TST-004**: MUST verify REQ-017 through REQ-024 using valid, invalid, missing, relative, and dry-run manifest track fixtures.
 - **TST-005**: MUST verify REQ-025 through REQ-030 using a temporary ID3-capable file and assertions for resulting Mutagen frames.
+- **TST-006**: MUST verify REQ-032 through REQ-039 by extracting nested MP3 fixtures into new and existing JSON manifests.
+- **TST-007**: MUST verify REQ-040 through REQ-047 by updating matching, changed, added, removed, and missing MP3 fixture entries.
+- **TST-008**: MUST verify REQ-049 by extracting a fixture manifest, updating unchanged files, and asserting byte-identical MP3 content.
+- **TST-009**: MUST verify REQ-049 by updating fixture MP3 files from a manifest and asserting a subsequent extraction reproduces that manifest.
 
 ### 4.1 Test Coverage Evidence
 
-No `tests/` directory exists. No automated implementation test coverage or failing-test evidence is available for the inferred functionality.
+`tests/` MUST contain coverage for the new tag extraction and update requirements after implementation.
 
 ## 5. Evidence Matrix
 
@@ -127,3 +155,4 @@ No `tests/` directory exists. No automated implementation test coverage or faili
 | REQ-019 through REQ-024 | `src/json2mp3/core.py` `sync_from_json` — track validation, relative path resolution, failure counting, and dry run. |
 | REQ-025 through REQ-030 | `src/json2mp3/core.py` `_write_id3_tags` — `frames` map, `COMM`, `ID3NoHeaderError`, and `ID3.save`. |
 | TST-001 through TST-005 | Derived verification procedures traceable to the cited executable functions; no existing test source is present. |
+| PRJ-006, PRJ-007, CTN-004 through CTN-006, DES-011, DES-012, REQ-032 through REQ-049, TST-006 through TST-009 | User request — `tags-extract` and `update-tags` command, JSON reconciliation, EyeD3, and round-trip test requirements. |
