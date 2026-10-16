@@ -114,12 +114,17 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **REQ-041**: MUST report each manifest path whose target MP3 file does not exist and continue remaining entries.
 - **REQ-042**: MUST update an existing ID3 field only when its value differs from the corresponding manifest tag value.
 - **REQ-043**: MUST add an ID3 field present in a manifest tag object and absent from the target file.
-- **REQ-044**: MUST remove a supported ID3 field present in the target file and absent from the manifest tag object.
+- **REQ-044**: MUST remove every ID3 tag present in the target file and absent from the manifest tag object, excluding binary frames preserved by REQ-056.
 - **REQ-045**: MUST print changed, added, and removed field names for every processed `update-tags` manifest entry.
 - **REQ-046**: MUST omit unchanged field names from `update-tags` detail output.
 - **REQ-047**: MUST print an `update-tags` summary containing updated, unchanged, and error file counts.
 - **REQ-048**: MUST normalize manifest paths using POSIX separators relative to the supplied MP3 root.
-- **REQ-049**: MUST round-trip supported EyeD3 scalar tag values through extraction and update without changing an already matching file.
+- **REQ-049**: MUST round-trip every extracted ID3 tag value through extraction and update without changing an already matching file.
+- **REQ-052**: MUST extract every text-bearing ID3 frame saved in each scanned MP3 file, including `TXXX` user-defined text and `USLT` or `SYLT` lyrics frames.
+- **REQ-053**: MUST key description- or language-bearing frames as `TXXX:<description>`, `WXXX:<description>`, `COMM:<language>:<description>`, `USLT:<language>:<description>`, `SYLT:<language>:<description>`, and `USER:<language>`.
+- **REQ-054**: MUST key description-less text and URL frames by their ID3 frame identifier and serialize their values as frame text or URL.
+- **REQ-055**: MUST serialize each `SYLT` frame as a JSON object containing format, type, and timestamped lyric entries.
+- **REQ-056**: MUST preserve binary ID3 frames such as attached pictures unchanged in both `tags-extract` and `update-tags`.
 - **REQ-050**: MUST list `sync`, `tags-extract`, and `update-tags` command synopses in the full help text.
 - **REQ-051**: MUST document installation, every CLI command, and both manifest formats in `README.md`.
 
@@ -134,6 +139,7 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **TST-007**: MUST verify REQ-040 through REQ-047 by updating matching, changed, added, removed, and missing MP3 fixture entries.
 - **TST-008**: MUST verify REQ-049 by extracting a fixture manifest, updating unchanged files, and asserting byte-identical MP3 content.
 - **TST-009**: MUST verify REQ-049 by updating fixture MP3 files from a manifest and asserting a subsequent extraction reproduces that manifest.
+- **TST-010**: MUST verify REQ-052 through REQ-056 using real EyeD3 MP3 fixtures containing user-text, lyrics, synchronized-lyrics, and picture frames.
 
 ### 4.1 Test Coverage Evidence
 
@@ -160,5 +166,6 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 | REQ-025 through REQ-030 | `src/json2mp3/core.py` `_write_id3_tags` — `frames` map, `COMM`, `ID3NoHeaderError`, and `ID3.save`. |
 | TST-001 through TST-005 | Derived verification procedures traceable to the cited executable functions; no existing test source is present. |
 | PRJ-006, PRJ-007, CTN-004 through CTN-006, DES-011, DES-012, REQ-032 through REQ-049, TST-006 through TST-009 | User request — `tags-extract` and `update-tags` command, JSON reconciliation, EyeD3, and round-trip test requirements. |
+| REQ-052 through REQ-056, TST-010 | User request — full ID3 frame coverage (`TXXX`, `USLT`, `SYLT`), complete update reconciliation, and binary-frame preservation. |
 | REQ-050 | `src/json2mp3/core.py` `HELP_TEXT` — command synopses rendered by `main`. |
 | REQ-051 | `README.md` — install, command, and manifest-format documentation. |

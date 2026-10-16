@@ -84,10 +84,11 @@ json2mp3 update-tags <mp3_root> <json_file>
 Reads the JSON manifest and updates the ID3 tags of the referenced MP3 files
 with EyeD3. Paths in the manifest are resolved relative to `<mp3_root>`:
 
-- differing fields are updated, missing fields are added, and extra supported
-  fields are removed;
-- unchanged fields are left untouched and never printed;
-- changed, added, and removed field names are printed per updated file;
+- differing tags are updated, missing tags are added, and extra tags are
+  removed;
+- binary frames such as attached pictures are preserved unchanged;
+- unchanged tags are left untouched and never printed;
+- changed, added, and removed tag names are printed per updated file;
 - missing MP3 files are reported as errors and processing continues;
 - a summary with updated, unchanged, and error file counts is always printed.
 
@@ -105,10 +106,12 @@ Mutagen. Relative paths are resolved against the manifest directory.
 
 ### tags-extract / update-tags (EyeD3)
 
-A JSON array sorted by relative path. Supported tag fields are `title`,
-`artist`, `album`, `album_artist`, `composer`, `publisher`, `copyright`,
-`genre`, `track_num`, `disc_num`, `recording_date`, `release_date`, and
-`original_release_date`.
+A JSON array sorted by relative path. Every text-bearing ID3 frame is
+extracted: scalar attribute fields (`title`, `artist`, `album`,
+`album_artist`, `composer`, `publisher`, `copyright`, `genre`, `track_num`,
+`disc_num`, `recording_date`, `release_date`, `original_release_date`) plus
+canonical frame keys for all remaining frames. Binary frames such as attached
+pictures are preserved untouched and never appear in the manifest.
 
 ```json
 [
@@ -119,11 +122,26 @@ A JSON array sorted by relative path. Supported tag fields are `title`,
       "artist": "Artist",
       "album": "Album",
       "track_num": [1, 10],
-      "recording_date": "2025"
+      "recording_date": "2025",
+      "TXXX:MOOD": "energetic",
+      "COMM:eng:": "a comment",
+      "USLT:und:": "plain lyrics",
+      "SYLT:und:LRCLIB": {
+        "format": 2,
+        "type": 1,
+        "lyrics": [[0, "first line"], [4200, "second line"]]
+      },
+      "TBPM": "128"
     }
   }
 ]
 ```
+
+Frame key syntax: `TXXX:<description>` and `WXXX:<description>` for
+user-defined frames, `COMM:<language>:<description>`,
+`USLT:<language>:<description>`, and `SYLT:<language>:<description>` for
+language frames, `USER:<language>` for terms of use, and the bare frame
+identifier (for example `TBPM`) for other text and URL frames.
 
 ### sync (Mutagen)
 
