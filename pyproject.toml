@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel>=0.41.0", "build>=1.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "json2mp3"
+version = "0.0.0"
+description = "Sync ID3 tags with a JSON file."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Francesco Rolando" }
+]
+keywords = ["id3", "mp3", "json", "uv", "uvx", "cli"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Sound/Audio",
+  "Topic :: Utilities",
+]
+
+dependencies = [
+  "mutagen>=1.47",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/Ogekuri/JSON2MP3"
+Repository = "https://github.com/Ogekuri/JSON2MP3"
+
+[project.scripts]
+json2mp3 = "json2mp3.core:main"
+j2m = "json2mp3.core:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["json2mp3", "json2mp3.*", "j2m", "j2m.*"]
+
+[tool.setuptools.package-data]
+json2mp3 = ["*.py"]
+j2m = ["*.py"]
