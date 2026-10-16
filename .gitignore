@@ -29,6 +29,8 @@
 !package.json
 !src/
 !src/**/*
+!pi-usereq/
+!pi-usereq/**/*
 !docs/
 !docs/**/*
 !guidelines/
