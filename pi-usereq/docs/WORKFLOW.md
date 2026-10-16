@@ -1,0 +1,84 @@
+# json2mp3 Workflow Model
+
+## Execution Units Index
+
+| ID | Type | Parent | Role | Entrypoint(s) | Defining File(s) |
+|---|---|---|---|---|---|
+| PROC:main | process | - | Single-process CLI runtime performing update checks, management commands, and ID3 synchronisation. | `main` (console scripts `json2mp3` and `j2m`; `python -m json2mp3`; `python -m j2m`) | `src/json2mp3/core.py`, `src/json2mp3/__main__.py`, `src/j2m/__main__.py`, `src/j2m/core.py` |
+| PROC:uv-tool | process | PROC:main | Short-lived child process executing the external `uv` tool manager. | external `uv` executable; no internal entrypoint | (no internal definitions under `src/`) |
+
+- PROC:main: no explicit threads detected.
+- PROC:uv-tool: no explicit threads detected; implementation entirely outside `src/`.
+
+## Execution Units
+
+### PROC:main
+
+- Entrypoints:
+  - `main` — console-script target for `json2mp3` and `j2m` commands; default argument source is `sys.argv[1:]`.
+  - module guard in `src/json2mp3/__main__.py` — invokes `main` and raises `SystemExit` for `python -m json2mp3`.
+  - module guard in `src/j2m/__main__.py` — invokes `main` re-exported by `src/j2m/core.py` for `python -m j2m`.
+- Lifecycle/trigger: starts at interpreter invocation of any entrypoint; blocks synchronously on HTTPS I/O during the update check and on child-process completion for upgrade/uninstall; terminates after returning an integer status to the interpreter (`SystemExit`).
+- Internal Call-Trace Tree:
+  - `main(...)`: dispatch the CLI argument sequence to management or synchronisation flows [`src/json2mp3/core.py`]
+    - external: `sys.argv` read when no argument sequence is supplied
+    - `check_for_update(...)`: run the cached or forced release check and print update/error notices [`src/json2mp3/core.py`]
+      - forced when arguments contain `--ver` or `--version`; skipped when the cache idle window is active
+      - `_cache_is_active(...)`: report whether the cached idle window is still active [`src/json2mp3/core.py`]
+        - `_cache_path(...)`: return the canonical cache file path [`src/json2mp3/core.py`]
+        - external: cache file read and JSON parse, epoch clock read
+      - `_fetch_latest_version(...)`: fetch and validate the latest release tag [`src/json2mp3/core.py`]
+        - external: HTTPS GET with 2-second timeout, response body read, JSON parse
+      - on success: `_write_cache(...)`: persist check and idle timestamps with the 3600-second delay [`src/json2mp3/core.py`]
+        - `_cache_path(...)`: return the canonical cache file path [`src/json2mp3/core.py`]
+        - `_human_timestamp(...)`: format an epoch value as local timezone-aware ISO 8601 [`src/json2mp3/core.py`]
+        - external: cache directory creation, cache file write
+      - on success: `_is_newer_version(...)`: compare candidate and installed releases [`src/json2mp3/core.py`]
+        - `_version_key(...)`: normalise a release tag into a numeric tuple [`src/json2mp3/core.py`]
+        - `_print_coloured(...)`: print the bright-green update notice when newer [`src/json2mp3/core.py`]
+          - external: stdout write
+      - on failure: `_print_coloured(...)`: print the bright-red failure notice [`src/json2mp3/core.py`]
+        - external: stdout write
+      - on failure: `_write_cache(...)`: persist check and idle timestamps with the 86400-second delay [`src/json2mp3/core.py`]
+        - `_cache_path(...)`: return the canonical cache file path [`src/json2mp3/core.py`]
+        - `_human_timestamp(...)`: format an epoch value as local timezone-aware ISO 8601 [`src/json2mp3/core.py`]
+        - external: cache directory creation, cache file write
+      - on cache write failure: `_print_coloured(...)`: print the bright-red cache-error notice [`src/json2mp3/core.py`]
+        - external: stdout write
+    - `_sync_parser(...)`: build the argparse parser for the `sync` command [`src/json2mp3/core.py`]
+      - external: argparse help rendering or argument parsing (`--help sync` and `sync` branches)
+    - `_run_tool_command(...)`: execute or print the `uv` tool install/uninstall command [`src/json2mp3/core.py`]
+      - external: platform detection; child-process spawn (`subprocess.run`) into PROC:uv-tool with inherited stdio
+      - `_print_coloured(...)`: print the bright-red message when the child cannot be spawned [`src/json2mp3/core.py`]
+        - external: stdout write
+    - `sync_from_json(...)`: synchronise ID3 tags from a manifest to MP3 files [`src/json2mp3/core.py`]
+      - external: manifest path expansion and resolution
+      - `_load_tracks(...)`: parse and validate the manifest structure [`src/json2mp3/core.py`]
+        - external: manifest file read, JSON parse
+      - per track: external: target path expansion, relative-path join with the manifest parent, existence check
+      - per track under `--dry-run`: external: stdout `Would update` write
+      - per track: `_write_id3_tags(...)`: write supported ID3 frames to one target file [`src/json2mp3/core.py`]
+        - external: mutagen ID3 load, empty-tag creation on missing ID3 header, frame delete/add, file save
+      - per track failure: `_print_coloured(...)`: print the bright-red track error [`src/json2mp3/core.py`]
+        - external: stdout write
+      - per track success: external: stdout `Updated` write
+    - `_print_coloured(...)`: print the bright-red unknown-command message [`src/json2mp3/core.py`]
+      - external: stdout write
+    - external: stdout writes for full help text and the version string
+- External Boundaries:
+  - network: HTTPS GET to the GitHub latest-release endpoint with a 2-second timeout.
+  - filesystem: version-check cache read/write under `$HOME/.cache/json2mp3/`.
+  - filesystem: JSON manifest read; target MP3 read/write through mutagen.
+  - OS: platform detection, child-process spawn of `uv`, and stdout writes.
+
+### PROC:uv-tool
+
+- Entrypoints: external `uv` executable invoked as `uv tool install json2mp3 --force --from git+https://github.com/Ogekuri/JSON2MP3.git` or `uv tool uninstall json2mp3`; no symbols defined under `src/`.
+- Lifecycle/trigger: spawned synchronously by PROC:main in `_run_tool_command` on Linux only; runs the requested tool operation to completion; parent resumes with the child exit code.
+- Internal Call-Trace Tree: none — no internal functions under `src/`; implementation is external.
+- External Boundaries: network access to PyPI/Git and tool-store file I/O performed entirely by the external `uv` implementation.
+
+## Communication Edges
+
+- PROC:main -> PROC:uv-tool: mechanism `subprocess.run` child-process spawn with inherited stdin/stdout/stderr; endpoint `uv` executable argv (`tool install json2mp3 --force --from git+https://github.com/Ogekuri/JSON2MP3.git` or `tool uninstall json2mp3`); payload argv tokens; return payload integer exit code consumed as the `_run_tool_command` result; declaration `src/json2mp3/core.py`.
+- No thread-based, queue-based, socket-based, or signal-based edges exist between execution units; no explicit threads are detected in `src/`.
