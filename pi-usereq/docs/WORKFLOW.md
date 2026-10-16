@@ -54,7 +54,7 @@
       - `_scan_mp3_files(...)`: recursively discover sorted `.mp3` paths [`src/json2mp3/tag_manifest.py`]
         - `_normalise_relative_path(...)`: create a POSIX-relative path key [`src/json2mp3/tag_manifest.py`]
       - `_load_audio(...)`: load one MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
-        - external: EyeD3 MP3 parse
+        - external: EyeD3 MP3 parse; module import sets the stdlib `eyed3` logger level to ERROR, filtering WARNING-level EyeD3 records (unsupported frames, non-standard genres) before stderr emission
       - `_tag_values(...)`: extract supported non-null scalar tag fields [`src/json2mp3/tag_manifest.py`]
         - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
       - `_changed_fields(...)`: identify changed supported tag names [`src/json2mp3/tag_manifest.py`]
@@ -63,7 +63,7 @@
     - `update_tags(...)`: reconcile EyeD3 MP3 tags from a JSON array [`src/json2mp3/tag_manifest.py`]
       - `_read_manifest(...)`: load source JSON array entries into a normalized path index [`src/json2mp3/tag_manifest.py`]
       - `_load_audio(...)`: load one target MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
-        - external: EyeD3 MP3 parse and optional tag initialization
+        - external: EyeD3 MP3 parse and optional tag initialization; WARNING-level EyeD3 records filtered by the `eyed3` logger ERROR threshold configured at module import
       - `_tag_values(...)`: read current supported field values [`src/json2mp3/tag_manifest.py`]
         - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
       - `_set_tag_field(...)`: assign or clear one supported EyeD3 field [`src/json2mp3/tag_manifest.py`]
@@ -90,6 +90,7 @@
   - network: HTTPS GET to the GitHub latest-release endpoint with a 2-second timeout.
   - filesystem: version-check cache read/write under `$HOME/.cache/json2mp3/`.
   - filesystem: JSON manifest read/write; target MP3 read/write through Mutagen and EyeD3.
+  - logging: EyeD3 WARNING-level library records filtered at the stdlib `eyed3` logger (level `EYED3_LOG_LEVEL = ERROR`) configured once at module import of `src/json2mp3/tag_manifest.py`; ERROR-or-higher records still propagate to configured root handlers.
   - OS: platform detection, child-process spawn of `uv`, directory traversal, and stdout writes.
 
 ### PROC:uv-tool

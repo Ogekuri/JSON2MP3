@@ -9,10 +9,19 @@ restricted to pytest temporary directories.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
+import eyed3
+
 from json2mp3.tag_manifest import tags_extract, update_tags
+
+#/** @brief Defines a genre name absent from the EyeD3 standard genre map.
+# * @details Triggers the EyeD3 "Non standard genre name" WARNING log record
+# * emitted by eyed3.id3.Genre when tag data is parsed during tags-extract.
+# */
+NON_STANDARD_GENRE = "Custom Fixture Genre"
 
 
 class FakeTag:
@@ -121,6 +130,72 @@ def _loader_for(audios: dict[Path, FakeAudio]):
         return audios.get(Path(path).resolve())
 
     return load
+
+
+def _write_real_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates a minimal parseable MP3 fixture carrying real EyeD3 tags.
+    @details Writes eight deterministic silent MPEG-1 Layer III frames, loads
+    the file through EyeD3, initializes an ID3 tag, assigns a title plus
+    NON_STANDARD_GENRE, and saves the tag so parsing re-emits the library
+    warning path. Complexity: O(frame-byte-count). Side effects: temporary
+    fixture file write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created MP3 fixture path.
+    """
+    mpeg_frame = bytes([0xFF, 0xFB, 0x90, 0x00]) + b"\x00" * 413
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(mpeg_frame * 8)
+    audio = eyed3.load(str(path))
+    assert audio is not None
+    audio.initTag()
+    assert audio.tag is not None
+    audio.tag.title = "Title"
+    audio.tag.genre = NON_STANDARD_GENRE
+    audio.tag.save()
+    return path
+
+
+def test_tags_extract_emits_no_eyed3_warning_log_records(
+    tmp_path: Path, capsys: Any, caplog: Any
+) -> None:
+    """
+    @brief Verifies tags-extract suppresses EyeD3 library WARNING log records.
+    @details Extracts a real non-standard-genre MP3 through the default EyeD3
+    loader and asserts zero eyed3 WARNING-or-higher records and zero library
+    noise in the documented CLI output channels. Complexity: O(F*T). Side
+    effects: temporary manifest write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest output capture fixture.
+    @param caplog {Any} Pytest log capture fixture.
+    @return {None} No value.
+    @satisfies REQ-037, REQ-038
+    """
+    root = tmp_path / "music"
+    _write_real_mp3(root, "song.mp3")
+    manifest = tmp_path / "tags.json"
+    caplog.clear()
+    capsys.readouterr()
+
+    expected_status = 0
+    actual_status = tags_extract(root, manifest)
+
+    assert actual_status == expected_status
+    entries = json.loads(manifest.read_text(encoding="utf-8"))
+    assert [entry["path"] for entry in entries] == ["song.mp3"]
+    assert entries[0]["tags"]["title"] == "Title"
+    assert entries[0]["tags"]["genre"] == NON_STANDARD_GENRE
+    leaked = [
+        record
+        for record in caplog.records
+        if record.name.startswith("eyed3") and record.levelno >= logging.WARNING
+    ]
+    assert leaked == []
+    output = capsys.readouterr()
+    assert "Summary: updated=0 added=1 removed=0" in output.out
+    assert output.err == ""
 
 
 def test_tags_extract_reconciles_added_updated_and_removed_entries(

@@ -183,13 +183,14 @@ semantics; rendered verbatim for no-argument and --help invocations.
 
 ---
 
-# tag_manifest.py | Python | 351L | 12 symbols | 6 imports | 17 comments
+# tag_manifest.py | Python | 370L | 13 symbols | 7 imports | 31 comments
 > Path: `src/json2mp3/tag_manifest.py`
 
 ## Imports
 ```
 from __future__ import annotations
 import json
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -198,8 +199,9 @@ import eyed3
 
 ## Definitions
 
-- var `SUPPORTED_TAG_FIELDS = (` (L23)
-### fn `def _normalise_value(value: Any) -> Any` `priv` (L43-59)
+- var `EYED3_LOG_LEVEL = logging.ERROR` (L26)
+- var `SUPPORTED_TAG_FIELDS = (` (L42)
+### fn `def _normalise_value(value: Any) -> Any` `priv` (L62-78)
 - @brief Defines the injectable EyeD3-compatible MP3 loader signature. */
 - @brief Converts an EyeD3 value into a JSON-compatible scalar or list.
 - @details Converts tuples and lists recursively, preserves JSON primitives, and converts EyeD3 domain values to their stable string form. Complexity: O(n) for sequence length n. Side effects: none.
@@ -207,21 +209,21 @@ import eyed3
 - @return {Any} JSON-compatible normalized representation.
 - @satisfies DES-011, REQ-049
 
-### fn `def _tag_values(tag: Any | None) -> dict[str, Any]` `priv` (L60-78)
+### fn `def _tag_values(tag: Any | None) -> dict[str, Any]` `priv` (L79-97)
 - @brief Extracts supported non-null fields from one EyeD3 tag object.
 - @details Reads each SUPPORTED_TAG_FIELDS attribute once and excludes null values, producing the canonical manifest tag object. Complexity: O(T).
 - @param tag {Any | None} EyeD3 tag object or null for an untagged file.
 - @return {dict[str, Any]} Supported field-name to normalized-value mapping.
 - @satisfies DES-011, REQ-025, REQ-049
 
-### fn `def _load_audio(path: str) -> Any` `priv` (L79-90)
+### fn `def _load_audio(path: str) -> Any` `priv` (L98-109)
 - @brief Loads one MP3 through the EyeD3 module.
 - @details Delegates MP3 parsing to eyed3.load; null is returned by EyeD3 for unreadable or unsupported audio data. Complexity: external-library bound.
 - @param path {str} Existing target MP3 path.
 - @return {Any} EyeD3 audio object or null.
 - @satisfies CTN-004
 
-### fn `def _normalise_relative_path(root: Path, audio_file: Path) -> str` `priv` (L91-103)
+### fn `def _normalise_relative_path(root: Path, audio_file: Path) -> str` `priv` (L110-122)
 - @brief Produces a POSIX-relative manifest key for one scanned file.
 - @details Computes the path relative to root and converts platform separators to POSIX separators. Complexity: O(path-length). Side effects: none.
 - @param root {Path} Resolved MP3 scan root.
@@ -229,16 +231,16 @@ import eyed3
 - @return {str} Normalized relative manifest path.
 - @satisfies REQ-048
 
-### fn `def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]` `priv` (L104-123)
+### fn `def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]` `priv` (L123-142)
 - @brief Recursively discovers MP3 files below a directory.
 - @details Selects regular files whose suffix equals .mp3 case-insensitively and sorts output by normalized relative path. Complexity: O(F log F).
 - @param root {Path} Candidate MP3 root directory.
 - @return {list[tuple[str, Path]]} Sorted manifest-key and absolute-path pairs. @raises ValueError If root is not a directory.
 - @satisfies REQ-032, REQ-048
 
-### fn `def _read_manifest(` `priv` (L124-127)
+### fn `def _read_manifest(` `priv` (L143-146)
 
-### fn `def _write_manifest(json_file: Path, manifest: dict[str, dict[str, Any]]) -> None` `priv` (L163-183)
+### fn `def _write_manifest(json_file: Path, manifest: dict[str, dict[str, Any]]) -> None` `priv` (L182-202)
 - @brief Loads a JSON array manifest into a relative-path index.
 - @brief Serializes a normalized tag index as a deterministic JSON array.
 - @details Returns an empty index for a missing destination, validates entry
@@ -255,7 +257,7 @@ Complexity: O(E), where E is entry count. Side effects: file read.
 - @satisfies REQ-033, REQ-040, REQ-048
 - @satisfies DES-012, REQ-033
 
-### fn `def _changed_fields(old_tags: dict[str, Any], new_tags: dict[str, Any]) -> list[str]` `priv` (L184-200)
+### fn `def _changed_fields(old_tags: dict[str, Any], new_tags: dict[str, Any]) -> list[str]` `priv` (L203-219)
 - @brief Lists supported fields with unequal old and new values.
 - @details Compares the union of supported keys in lexical order and omits unchanged or unsupported fields. Complexity: O(T log T). Side effects: none.
 - @param old_tags {dict[str, Any]} Previous field-value mapping.
@@ -263,9 +265,9 @@ Complexity: O(E), where E is entry count. Side effects: file read.
 - @return {list[str]} Lexically ordered differing supported field names.
 - @satisfies REQ-037, REQ-046
 
-### fn `def tags_extract(` (L201-205)
+### fn `def tags_extract(` (L220-224)
 
-### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L248-265)
+### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L267-284)
 - @brief Extracts recursive MP3 ID3 data and reconciles one JSON manifest.
 - @brief Assigns or clears one supported EyeD3 tag attribute.
 - @details Loads existing entries, replaces scanned entries by normalized path,
@@ -283,21 +285,22 @@ changed existing-field details plus file-count summary. Complexity: O(F log F).
 - @satisfies REQ-032, REQ-039, REQ-048, REQ-049
 - @satisfies REQ-042, REQ-043, REQ-044
 
-### fn `def update_tags(` (L266-270)
+### fn `def update_tags(` (L285-289)
 
 ## Symbol Index
 |Symbol|Kind|Vis|Lines|Sig|
 |---|---|---|---|---|
-|`SUPPORTED_TAG_FIELDS`|var|pub|23||
-|`_normalise_value`|fn|priv|43-59|def _normalise_value(value: Any) -> Any|
-|`_tag_values`|fn|priv|60-78|def _tag_values(tag: Any | None) -> dict[str, Any]|
-|`_load_audio`|fn|priv|79-90|def _load_audio(path: str) -> Any|
-|`_normalise_relative_path`|fn|priv|91-103|def _normalise_relative_path(root: Path, audio_file: Path...|
-|`_scan_mp3_files`|fn|priv|104-123|def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]|
-|`_read_manifest`|fn|priv|124-127|def _read_manifest(|
-|`_write_manifest`|fn|priv|163-183|def _write_manifest(json_file: Path, manifest: dict[str, ...|
-|`_changed_fields`|fn|priv|184-200|def _changed_fields(old_tags: dict[str, Any], new_tags: d...|
-|`tags_extract`|fn|pub|201-205|def tags_extract(|
-|`_set_tag_field`|fn|priv|248-265|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
-|`update_tags`|fn|pub|266-270|def update_tags(|
+|`EYED3_LOG_LEVEL`|var|pub|26||
+|`SUPPORTED_TAG_FIELDS`|var|pub|42||
+|`_normalise_value`|fn|priv|62-78|def _normalise_value(value: Any) -> Any|
+|`_tag_values`|fn|priv|79-97|def _tag_values(tag: Any | None) -> dict[str, Any]|
+|`_load_audio`|fn|priv|98-109|def _load_audio(path: str) -> Any|
+|`_normalise_relative_path`|fn|priv|110-122|def _normalise_relative_path(root: Path, audio_file: Path...|
+|`_scan_mp3_files`|fn|priv|123-142|def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]|
+|`_read_manifest`|fn|priv|143-146|def _read_manifest(|
+|`_write_manifest`|fn|priv|182-202|def _write_manifest(json_file: Path, manifest: dict[str, ...|
+|`_changed_fields`|fn|priv|203-219|def _changed_fields(old_tags: dict[str, Any], new_tags: d...|
+|`tags_extract`|fn|pub|220-224|def tags_extract(|
+|`_set_tag_field`|fn|priv|267-284|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
+|`update_tags`|fn|pub|285-289|def update_tags(|
 

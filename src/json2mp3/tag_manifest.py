@@ -10,11 +10,30 @@ supported field count.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import eyed3
+
+#/** @brief Defines the minimum log level retained for the EyeD3 logger.
+# * @details WARNING-level EyeD3 parse notices (unsupported frames and
+# * non-standard genre names) otherwise leak to the terminal through the
+# * logging last-resort handler and pollute the documented CLI output.
+# * @satisfies REQ-037, REQ-038
+# */
+EYED3_LOG_LEVEL = logging.ERROR
+
+#/** @brief Suppresses EyeD3 WARNING-level library noise once at module import.
+# * @details Sets the effective level of the standard-library logger named
+# * "eyed3" so child loggers such as "eyed3.id3" filter WARNING records before
+# * propagation, while ERROR-or-higher records still reach configured root
+# * handlers. Complexity: O(1). Side effects: mutates the process-wide
+# * "eyed3" logger level exactly once per interpreter run.
+# * @satisfies REQ-037, REQ-038
+# */
+logging.getLogger("eyed3").setLevel(EYED3_LOG_LEVEL)
 
 #/** @brief Enumerates JSON-manifest fields mapped to EyeD3 scalar attributes.
 # * @details Ordered tuple controls extraction and reconciliation scope.
