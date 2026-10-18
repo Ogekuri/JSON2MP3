@@ -127,6 +127,8 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **REQ-056**: MUST preserve binary ID3 frames such as attached pictures unchanged in both `tags-extract` and `update-tags`.
 - **REQ-050**: MUST list `sync`, `tags-extract`, and `update-tags` command synopses in the full help text.
 - **REQ-051**: MUST document installation, every CLI command, and both manifest formats in `README.md`.
+- **REQ-057**: MUST extract each `POPM` popularimeter frame as key `POPM:<email>` with an object value containing integer `rating` and integer `counter`.
+- **REQ-058**: MUST accept a `POPM:<email>` value as an integer rating or an object with integer `rating` and optional integer `counter` defaulting to zero.
 
 ## 4. Test Requirements
 
@@ -140,6 +142,7 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **TST-008**: MUST verify REQ-049 by extracting a fixture manifest, updating unchanged files, and asserting byte-identical MP3 content.
 - **TST-009**: MUST verify REQ-049 by updating fixture MP3 files from a manifest and asserting a subsequent extraction reproduces that manifest.
 - **TST-010**: MUST verify REQ-052 through REQ-056 using real EyeD3 MP3 fixtures containing user-text, lyrics, synchronized-lyrics, and picture frames.
+- **TST-011**: MUST verify REQ-057 and REQ-058 by round-tripping EyeD3 MP3 fixtures containing popularimeter frames through `tags-extract` and `update-tags`.
 
 ### 4.1 Test Coverage Evidence
 
@@ -167,5 +170,6 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 | TST-001 through TST-005 | Derived verification procedures traceable to the cited executable functions; no existing test source is present. |
 | PRJ-006, PRJ-007, CTN-004 through CTN-006, DES-011, DES-012, REQ-032 through REQ-049, TST-006 through TST-009 | User request — `tags-extract` and `update-tags` command, JSON reconciliation, EyeD3, and round-trip test requirements. |
 | REQ-052 through REQ-056, TST-010 | User request — full ID3 frame coverage (`TXXX`, `USLT`, `SYLT`), complete update reconciliation, and binary-frame preservation. |
+| REQ-057, REQ-058, TST-011 | User request — ID3 `POPM` popularimeter field support: extraction keying, JSON value schema, and frame construction. |
 | REQ-050 | `src/json2mp3/core.py` `HELP_TEXT` — command synopses rendered by `main`. |
 | REQ-051 | `README.md` — install, command, and manifest-format documentation. |

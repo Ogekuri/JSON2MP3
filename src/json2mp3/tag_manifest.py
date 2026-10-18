@@ -1,11 +1,11 @@
 """
 @brief Implements EyeD3-backed JSON tag manifest operations.
 @details Provides deterministic recursive extraction and reconciliation of all
-text-bearing ID3 frames, including user-defined text and lyrics frames, while
-preserving binary frames. Manifest paths are POSIX-relative to the caller
-supplied root. Complexity: O(F log F + F*(T+F)), where F is file count and T is
-supported field count.
-@satisfies PRJ-006, PRJ-007, REQ-032, REQ-049, REQ-052, REQ-056
+text-bearing ID3 frames, including user-defined text, lyrics, and
+popularimeter frames, while preserving binary frames. Manifest paths are
+POSIX-relative to the caller supplied root. Complexity: O(F log F +
+F*(T+F)), where F is file count and T is supported field count.
+@satisfies PRJ-006, PRJ-007, REQ-032, REQ-049, REQ-052, REQ-056, REQ-057
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from eyed3.id3.frames import (
     CommentFrame,
     Frame,
     LyricsFrame,
+    PopularityFrame,
     TermsOfUseFrame,
     TextFrame,
     UrlFrame,
@@ -306,13 +307,14 @@ def _frame_key(frame: Any) -> str | None:
     """
     @brief Computes the canonical manifest key for one EyeD3 frame.
     @details Builds description- and language-bearing keys for TXXX, WXXX, COMM,
-    USLT, SYLT, and USER frames, plain frame-identifier keys for other text and
-    URL frames, and returns null for binary frames requiring preservation.
+    USLT, SYLT, and USER frames, the email-bearing key for POPM frames, plain
+    frame-identifier keys for other text and URL frames, and returns null for
+    binary frames requiring preservation.
     Complexity: O(payload-length) for raw SYLT frames, otherwise O(1). Side
     effects: none.
     @param frame {Any} EyeD3 frame object from a tag frame set.
     @return {str | None} Canonical manifest key or null for binary frames.
-    @satisfies REQ-052, REQ-053, REQ-054, REQ-056
+    @satisfies REQ-052, REQ-053, REQ-054, REQ-056, REQ-057
     """
     fid = _normalise_frame_id(frame.id).decode("ascii", "replace")
     if isinstance(frame, UserTextFrame):
@@ -325,6 +327,8 @@ def _frame_key(frame: Any) -> str | None:
         return f"USLT:{frame.lang.decode('ascii', 'replace')}:{frame.description}"
     if isinstance(frame, TermsOfUseFrame):
         return f"USER:{frame.lang.decode('ascii', 'replace')}"
+    if isinstance(frame, PopularityFrame):
+        return f"POPM:{frame.email.decode('ascii', 'replace')}"
     if isinstance(frame, TextFrame | UrlFrame):
         return fid
     if type(frame) is Frame and fid == "SYLT":
@@ -340,18 +344,21 @@ def _frame_value(frame: Any) -> Any:
     """
     @brief Computes the JSON value for one EyeD3 frame.
     @details Returns text for description-bearing text frames, URL for URL
-    frames, text or text list for generic text frames, and the structured SYLT
-    object for raw synchronized-lyrics frames. Complexity: O(payload-length)
+    frames, text or text list for generic text frames, the structured SYLT
+    object for raw synchronized-lyrics frames, and the rating/counter object
+    for POPM frames. Complexity: O(payload-length)
     for raw SYLT frames, otherwise O(1). Side effects: none.
     @param frame {Any} EyeD3 frame object from a tag frame set.
     @return {Any} JSON-compatible frame value.
     @raises ValueError If a raw SYLT payload is malformed.
-    @satisfies REQ-052, REQ-054, REQ-055
+    @satisfies REQ-052, REQ-054, REQ-055, REQ-057
     """
     if isinstance(frame, UserTextFrame | CommentFrame | LyricsFrame | TermsOfUseFrame):
         return frame.text
     if isinstance(frame, UserUrlFrame):
         return frame.url
+    if isinstance(frame, PopularityFrame):
+        return {"rating": int(frame.rating), "counter": int(frame.count)}
     if isinstance(frame, TextFrame):
         return frame.text
     if isinstance(frame, UrlFrame):
@@ -368,19 +375,24 @@ def _parse_frame_key(field: str) -> dict[str, Any] | None:
     """
     @brief Parses one manifest tag key into a frame construction specification.
     @details Validates `<FRAME>` plain identifiers, `TXXX:` and `WXXX:`
-    description keys, `COMM:`, `USLT:`, and `SYLT:` language-description keys,
+    description keys, `POPM:` email keys, `COMM:`, `USLT:`, and `SYLT:`
+    language-description keys,
     and `USER:` language keys; rejects identifiers covered by attribute fields.
     Complexity: O(key-length). Side effects: none.
     @param field {str} Manifest tag key.
     @return {dict[str, Any] | None} Specification with fid bytes and optional
     description or lang, or null when the key is not a settable frame key.
-    @satisfies REQ-053, REQ-054
+    @satisfies REQ-053, REQ-054, REQ-057, REQ-058
     """
     head, separator, rest = field.partition(":")
     if head in {"TXXX", "WXXX"}:
         if not separator:
             return None
         return {"fid": head.encode("ascii"), "description": rest}
+    if head == "POPM":
+        if not separator:
+            return None
+        return {"fid": b"POPM", "description": rest}
     if head in _LANG_KEY_FRAMES:
         if not separator:
             return None
@@ -446,18 +458,48 @@ def _text_value(value: Any) -> str:
     return value
 
 
+def _popularity_values(value: Any) -> tuple[int, int]:
+    """
+    @brief Normalizes one POPM manifest value into rating and counter integers.
+    @details Accepts a bare integer rating with implicit zero counter and an
+    object with integer rating plus optional integer counter defaulting to
+    zero; rejects boolean values that Python would otherwise accept as
+    integers. Rating range and counter sign remain enforced by the EyeD3
+    PopularityFrame setters. Complexity: O(1). Side effects: none.
+    @param value {Any} Manifest value bound to a `POPM:<email>` key.
+    @return {tuple[int, int]} Rating value and play-counter value.
+    @raises ValueError If the value is neither an integer rating nor an object
+    with integer rating and optional integer counter.
+    @satisfies REQ-058
+    """
+    if isinstance(value, bool):
+        raise ValueError("POPM rating must be an integer")
+    if isinstance(value, int):
+        return value, 0
+    if not isinstance(value, dict):
+        raise ValueError("POPM manifest value must be an integer or an object")
+    rating = value.get("rating")
+    counter = value.get("counter", 0)
+    if isinstance(rating, bool) or not isinstance(rating, int):
+        raise ValueError("POPM rating must be an integer")
+    if isinstance(counter, bool) or not isinstance(counter, int):
+        raise ValueError("POPM counter must be an integer")
+    return rating, counter
+
+
 def _build_frame(spec: dict[str, Any], value: Any) -> Any:
     """
     @brief Constructs one EyeD3 frame from a key specification and value.
     @details Builds UserTextFrame, UserUrlFrame, CommentFrame, LyricsFrame,
-    TermsOfUseFrame, raw SYLT, generic UrlFrame, or generic TextFrame instances
+    TermsOfUseFrame, PopularityFrame, raw SYLT, generic UrlFrame, or generic
+    TextFrame instances
     according to the specification frame identifier. Complexity: O(value-size).
     Side effects: none.
     @param spec {dict[str, Any]} Output of _parse_frame_key for the target key.
     @param value {Any} Manifest value for the frame.
     @return {Any} Unattached EyeD3 frame object.
     @raises ValueError If the value shape is invalid for the frame type.
-    @satisfies REQ-043, REQ-055
+    @satisfies REQ-043, REQ-055, REQ-057, REQ-058
     """
     fid = spec["fid"]
     description = spec.get("description") or ""
@@ -476,6 +518,11 @@ def _build_frame(spec: dict[str, Any], value: Any) -> Any:
         )
     if fid == b"USER":
         return TermsOfUseFrame(text=_text_value(value), lang=lang)
+    if fid == b"POPM":
+        rating, counter = _popularity_values(value)
+        return PopularityFrame(
+            email=description.encode("ascii"), rating=rating, count=counter
+        )
     if fid == b"SYLT":
         frame = Frame(b"SYLT")
         frame.data = _render_sylt_payload(lang, description, value)
@@ -546,11 +593,12 @@ def _tag_values(tag: Any | None) -> dict[str, Any]:
     @details Reads each SUPPORTED_TAG_FIELDS attribute once through the
     _attribute_value GenreException raw-frame fallback, then scans the tag
     frame set and emits canonical keys for every additional text-bearing frame,
-    including TXXX, WXXX, COMM, USLT, USER, and raw SYLT frames; binary frames
-    are omitted. Complexity: O(T + F). Side effects: none.
+    including TXXX, WXXX, COMM, USLT, USER, raw SYLT, and POPM frames; binary
+    frames are omitted. Complexity: O(T + F). Side effects: none.
     @param tag {Any | None} EyeD3 tag object or null for an untagged file.
     @return {dict[str, Any]} Tag-key to normalized-value mapping.
-    @satisfies DES-011, REQ-025, REQ-049, REQ-052, REQ-053, REQ-054, REQ-056
+    @satisfies DES-011, REQ-025, REQ-049, REQ-052, REQ-053, REQ-054, REQ-056,
+    REQ-057
     """
     if tag is None:
         return {}

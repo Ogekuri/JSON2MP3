@@ -17,6 +17,7 @@ from eyed3.id3.frames import (
     CommentFrame,
     Frame,
     LyricsFrame,
+    PopularityFrame,
     UserTextFrame,
 )
 
@@ -329,3 +330,174 @@ def test_sylt_manifest_round_trip_reproduces_modified_values(
         "type": 3,
         "lyrics": [[0, "prima"], [9000, "seconda"]],
     }
+
+
+def _write_popm_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates one MP3 fixture carrying two POPM popularimeter frames.
+    @details Writes deterministic MPEG frames, then attaches one rated frame
+    for user@example.com and one empty-email frame through the EyeD3 frame
+    set, and saves the tag. Complexity: O(frame-byte-count). Side effects:
+    temporary fixture file write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created MP3 fixture path.
+    @satisfies TST-011
+    """
+    path = _write_untagged_mp3(root, relative_path)
+    audio = eyed3.load(str(path))
+    assert audio is not None
+    tag = audio.initTag()
+    assert tag is not None
+    tag.frame_set[b"POPM"] = PopularityFrame(
+        email=b"user@example.com", rating=196, count=42
+    )
+    tag.frame_set[b"POPM"] = PopularityFrame(email=b"", rating=5, count=0)
+    tag.save()
+    return path
+
+
+def test_tags_extract_includes_popularity_frames_with_rating_and_counter(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief Verifies extraction keys POPM frames by email with object values.
+    @details Extracts a fixture carrying two popularimeter frames and asserts
+    one `POPM:<email>` key per frame with integer rating and counter fields.
+    Complexity: O(T+F). Side effects: temporary manifest write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @return {None} No value.
+    @satisfies REQ-057, TST-011
+    """
+    root = tmp_path / "music"
+    _write_popm_mp3(root, "song.mp3")
+    manifest = tmp_path / "tags.json"
+
+    expected_status = 0
+    actual_status = tags_extract(root, manifest)
+
+    assert actual_status == expected_status
+    entries = json.loads(manifest.read_text(encoding="utf-8"))
+    tags = entries[0]["tags"]
+    assert tags["POPM:user@example.com"] == {"rating": 196, "counter": 42}
+    assert tags["POPM:"] == {"rating": 5, "counter": 0}
+
+
+def test_popm_round_trip_preserves_fixture_bytes(tmp_path: Path) -> None:
+    """
+    @brief Verifies POPM extraction and matching update keep fixture bytes stable.
+    @details Extracts a popularimeter-tagged fixture, applies the manifest back
+    to the same file, and asserts byte identity proving no rewrite occurred.
+    Complexity: O(T+F). Side effects: temporary manifest write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @return {None} No value.
+    @satisfies REQ-049, REQ-057, REQ-058, TST-011
+    """
+    root = tmp_path / "music"
+    song = _write_popm_mp3(root, "song.mp3")
+    original_bytes = song.read_bytes()
+    manifest = tmp_path / "tags.json"
+
+    extracted_status = tags_extract(root, manifest)
+    updated_status = update_tags(root, manifest)
+
+    assert extracted_status == 0
+    assert updated_status == 0
+    assert song.read_bytes() == original_bytes
+
+
+def test_update_tags_creates_updates_and_removes_popularity_frames(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies update reconciliation over POPM keys using both value forms.
+    @details Updates one frame through the rating/counter object form, creates
+    one frame through the bare integer rating form, and removes the
+    empty-email frame absent from the manifest, asserting final frame state and
+    detail output. Complexity: O(T+F). Side effects: temporary fixture write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-057, REQ-058
+    """
+    root = tmp_path / "music"
+    song = _write_popm_mp3(root, "song.mp3")
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "song.mp3",
+                    "tags": {
+                        "POPM:user@example.com": {"rating": 255, "counter": 100},
+                        "POPM:other@example.com": 7,
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    expected_status = 0
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    tag = _load_tag(song)
+    popularity = {
+        frame.email.decode("ascii"): (frame.rating, frame.count)
+        for frame in tag.frame_set[b"POPM"]
+    }
+    assert popularity == {
+        "user@example.com": (255, 100),
+        "other@example.com": (7, 0),
+    }
+    output = capsys.readouterr().out
+    assert "changed=POPM:user@example.com" in output
+    assert "added=POPM:other@example.com" in output
+    assert "removed=POPM:" in output
+    assert "Summary: updated=1 unchanged=0 errors=0" in output
+
+
+def test_update_tags_rejects_invalid_popm_values(tmp_path: Path, capsys: Any) -> None:
+    """
+    @brief Verifies invalid POPM value shapes fail per file without file writes.
+    @details Applies one manifest entry with a non-integer rating object and
+    one with a boolean rating, asserting per-file error reporting, exit status
+    one, and original on-disk frame state for both fixtures.
+    Complexity: O(T+F). Side effects: temporary fixture write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-058
+    """
+    root = tmp_path / "music"
+    first = _write_popm_mp3(root, "first.mp3")
+    second = _write_popm_mp3(root, "second.mp3")
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "first.mp3",
+                    "tags": {"POPM:user@example.com": {"rating": "five"}},
+                },
+                {"path": "second.mp3", "tags": {"POPM:user@example.com": True}},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    expected_status = 1
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    for song in (first, second):
+        tag = _load_tag(song)
+        popularity = {
+            frame.email.decode("ascii"): frame.rating
+            for frame in tag.frame_set[b"POPM"]
+        }
+        assert popularity == {"user@example.com": 196, "": 5}
+    output = capsys.readouterr().out
+    assert output.count("Error: unable to apply tags to") == 2
+    assert "Summary: updated=0 unchanged=0 errors=2" in output

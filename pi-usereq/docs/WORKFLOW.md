@@ -49,13 +49,13 @@
       - external: argparse help rendering or argument parsing (`--help sync` and `sync` branches)
     - `_tag_command_parser(...)`: build positional parsers for `tags-extract` and `update-tags` [`src/json2mp3/core.py`]
       - external: argparse help rendering and argument parsing
-    - `tags_extract(...)`: recursively reconcile all EyeD3 text-bearing MP3 frames into a JSON array [`src/json2mp3/tag_manifest.py`]
+    - `tags_extract(...)`: recursively reconcile all EyeD3 text-bearing and popularimeter MP3 frames into a JSON array [`src/json2mp3/tag_manifest.py`]
       - `_read_manifest(...)`: load existing JSON array entries into a normalized path index [`src/json2mp3/tag_manifest.py`]
       - `_scan_mp3_files(...)`: recursively discover sorted `.mp3` paths [`src/json2mp3/tag_manifest.py`]
         - `_normalise_relative_path(...)`: create a POSIX-relative path key [`src/json2mp3/tag_manifest.py`]
       - `_load_audio(...)`: load one MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
         - external: EyeD3 MP3 parse; module import sets the stdlib `eyed3` logger level to ERROR, filtering WARNING-level EyeD3 records (unsupported frames, non-standard genres) before stderr emission
-      - `_tag_values(...)`: extract attribute fields plus every text-bearing ID3 frame [`src/json2mp3/tag_manifest.py`]
+      - `_tag_values(...)`: extract attribute fields plus every text-bearing and popularimeter ID3 frame [`src/json2mp3/tag_manifest.py`]
         - `_attribute_value(...)`: read one attribute field, falling back to the covering ATTRIBUTE_FRAME_IDS frame when EyeD3 raises GenreException [`src/json2mp3/tag_manifest.py`]
         - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
         - `_normalise_frame_id(...)`: normalize ID3v2.2 frame identifiers to four characters [`src/json2mp3/tag_manifest.py`]
@@ -63,7 +63,7 @@
           - `_parse_sylt_payload(...)`: decode a raw SYLT frame payload into lang, description, format, type, and timestamped entries [`src/json2mp3/tag_manifest.py`]
             - `_split_terminated(...)`: split a payload at its ID3 string terminator [`src/json2mp3/tag_manifest.py`]
             - `_decode_id3_string(...)`: decode one ID3 text field by its encoding byte [`src/json2mp3/tag_manifest.py`]
-        - `_frame_value(...)`: compute the JSON value for one text-bearing frame [`src/json2mp3/tag_manifest.py`]
+        - `_frame_value(...)`: compute the JSON value for one text-bearing or POPM popularity frame [`src/json2mp3/tag_manifest.py`]
           - `_parse_sylt_payload(...)`: decode a raw SYLT frame payload into lang, description, format, type, and timestamped entries [`src/json2mp3/tag_manifest.py`]
       - `_changed_fields(...)`: identify changed tag keys [`src/json2mp3/tag_manifest.py`]
       - `_write_manifest(...)`: serialize the reconciled sorted JSON array [`src/json2mp3/tag_manifest.py`]
@@ -80,7 +80,7 @@
           - `_parse_sylt_payload(...)`: decode a raw SYLT frame payload into lang, description, format, type, and timestamped entries [`src/json2mp3/tag_manifest.py`]
             - `_split_terminated(...)`: split a payload at its ID3 string terminator [`src/json2mp3/tag_manifest.py`]
             - `_decode_id3_string(...)`: decode one ID3 text field by its encoding byte [`src/json2mp3/tag_manifest.py`]
-        - `_frame_value(...)`: compute the JSON value for one text-bearing frame [`src/json2mp3/tag_manifest.py`]
+        - `_frame_value(...)`: compute the JSON value for one text-bearing or POPM popularity frame [`src/json2mp3/tag_manifest.py`]
           - `_parse_sylt_payload(...)`: decode a raw SYLT frame payload into lang, description, format, type, and timestamped entries [`src/json2mp3/tag_manifest.py`]
       - `_is_settable_key(...)`: validate one manifest key as an attribute or canonical frame key [`src/json2mp3/tag_manifest.py`]
         - `_parse_frame_key(...)`: parse one manifest key into a frame construction specification [`src/json2mp3/tag_manifest.py`]
