@@ -16,7 +16,12 @@ from typing import Any
 import eyed3
 from eyed3.id3.frames import TextFrame
 
-from json2mp3.tag_manifest import tags_extract, update_tags
+from json2mp3.tag_manifest import (
+    _read_manifest,
+    _write_manifest,
+    tags_extract,
+    update_tags,
+)
 
 #/** @brief Defines a genre name absent from the EyeD3 standard genre map.
 # * @details Triggers the EyeD3 "Non standard genre name" WARNING log record
@@ -435,3 +440,29 @@ def test_numeric_genre_extract_and_update_round_trip(tmp_path: Path) -> None:
         for entry in json.loads(reproduced.read_text(encoding="utf-8"))
     }
     assert reproduced_tags["fresh.mp3"]["genre"] == NUMERIC_GENRE
+
+
+def test_manifest_write_and_read_round_trip_preserves_non_ascii_values(
+    tmp_path: Path,
+) -> None:
+    """
+    @brief Verifies tag-manifest writes and reads round-trip non-ASCII values.
+    @details Serializes a manifest containing non-ASCII tag values, asserts the
+    on-disk bytes decode as UTF-8 with the documented array shape, and asserts
+    the loader reproduces the exact path-index mapping.
+    Complexity: O(E). Side effects: temporary manifest write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @return {None} No value.
+    @satisfies DES-013, DES-014, TST-012
+    """
+    manifest = tmp_path / "tags.json"
+    expected = {"song.mp3": {"title": "Città vecchia", "TXXX:Nota": "Müller ✓"}}
+
+    _write_manifest(manifest, expected)
+    decoded = manifest.read_bytes().decode("utf-8")
+    actual = _read_manifest(manifest)
+
+    assert json.loads(decoded) == [
+        {"path": "song.mp3", "tags": expected["song.mp3"]}
+    ]
+    assert actual == expected

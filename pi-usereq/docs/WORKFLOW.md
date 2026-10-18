@@ -26,13 +26,13 @@
       - forced when arguments contain `--ver` or `--version`; skipped when the cache idle window is active
       - `_cache_is_active(...)`: report whether the cached idle window is still active [`src/json2mp3/core.py`]
         - `_cache_path(...)`: return the canonical cache file path [`src/json2mp3/core.py`]
-        - external: cache file read and JSON parse, epoch clock read
+        - external: UTF-8 cache file read and JSON parse, epoch clock read
       - `_fetch_latest_version(...)`: fetch and validate the latest release tag [`src/json2mp3/core.py`]
         - external: HTTPS GET with 2-second timeout, response body read, JSON parse
       - on success: `_write_cache(...)`: persist check and idle timestamps with the 3600-second delay [`src/json2mp3/core.py`]
         - `_cache_path(...)`: return the canonical cache file path [`src/json2mp3/core.py`]
         - `_human_timestamp(...)`: format an epoch value as local timezone-aware ISO 8601 [`src/json2mp3/core.py`]
-        - external: cache directory creation, cache file write
+        - external: cache directory creation, UTF-8 cache file write
       - on success: `_is_newer_version(...)`: compare candidate and installed releases [`src/json2mp3/core.py`]
         - `_version_key(...)`: normalise a release tag into a numeric tuple [`src/json2mp3/core.py`]
         - `_print_coloured(...)`: print the bright-green update notice when newer [`src/json2mp3/core.py`]
@@ -42,7 +42,7 @@
       - on failure: `_write_cache(...)`: persist check and idle timestamps with the 86400-second delay [`src/json2mp3/core.py`]
         - `_cache_path(...)`: return the canonical cache file path [`src/json2mp3/core.py`]
         - `_human_timestamp(...)`: format an epoch value as local timezone-aware ISO 8601 [`src/json2mp3/core.py`]
-        - external: cache directory creation, cache file write
+        - external: cache directory creation, UTF-8 cache file write
       - on cache write failure: `_print_coloured(...)`: print the bright-red cache-error notice [`src/json2mp3/core.py`]
         - external: stdout write
     - `_sync_parser(...)`: build the argparse parser for the `sync` command [`src/json2mp3/core.py`]
@@ -103,7 +103,7 @@
     - `sync_from_json(...)`: synchronise ID3 tags from a manifest to MP3 files [`src/json2mp3/core.py`]
       - external: manifest path expansion and resolution
       - `_load_tracks(...)`: parse and validate the manifest structure [`src/json2mp3/core.py`]
-        - external: manifest file read, JSON parse
+        - external: UTF-8 manifest file read, JSON parse
       - per track: external: target path expansion, relative-path join with the manifest parent, existence check
       - per track under `--dry-run`: external: stdout `Would update` write
       - per track: `_write_id3_tags(...)`: write supported ID3 frames to one target file [`src/json2mp3/core.py`]
@@ -116,8 +116,8 @@
     - external: stdout writes for full help text and the version string
 - External Boundaries:
   - network: HTTPS GET to the GitHub latest-release endpoint with a 2-second timeout.
-  - filesystem: version-check cache read/write under `$HOME/.cache/json2mp3/`.
-  - filesystem: JSON manifest read/write; target MP3 read/write through Mutagen and EyeD3.
+  - filesystem: version-check cache read/write as UTF-8 JSON under `$HOME/.cache/json2mp3/`.
+  - filesystem: UTF-8 JSON manifest read/write; target MP3 read/write through Mutagen and EyeD3.
   - logging: EyeD3 WARNING-level library records filtered at the stdlib `eyed3` logger (level `EYED3_LOG_LEVEL = ERROR`) configured once at module import of `src/json2mp3/tag_manifest.py`; ERROR-or-higher records still propagate to configured root handlers.
   - OS: platform detection, child-process spawn of `uv`, directory traversal, and stdout writes.
 

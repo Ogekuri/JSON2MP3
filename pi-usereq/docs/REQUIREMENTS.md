@@ -68,6 +68,8 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **DES-010**: MUST record no explicit performance optimizations identified because source contains no optimization-specific implementation evidence.
 - **DES-011**: MUST represent each extracted file as a JSON object containing a normalized relative `path` and an ID3 `tags` object.
 - **DES-012**: MUST serialize tag manifests as a JSON array ordered by normalized relative file path.
+- **DES-013**: MUST decode every JSON manifest and cache file read with explicit UTF-8.
+- **DES-014**: MUST write every JSON manifest and cache file as UTF-8 encoded text.
 
 ### 3.2 Functions
 
@@ -143,6 +145,7 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **TST-009**: MUST verify REQ-049 by updating fixture MP3 files from a manifest and asserting a subsequent extraction reproduces that manifest.
 - **TST-010**: MUST verify REQ-052 through REQ-056 using real EyeD3 MP3 fixtures containing user-text, lyrics, synchronized-lyrics, and picture frames.
 - **TST-011**: MUST verify REQ-057 and REQ-058 by round-tripping EyeD3 MP3 fixtures containing popularimeter frames through `tags-extract` and `update-tags`.
+- **TST-012**: MUST verify DES-013 and DES-014 by round-tripping non-ASCII manifest and cache values through UTF-8 file writes and reads.
 
 ### 4.1 Test Coverage Evidence
 
@@ -171,5 +174,6 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 | PRJ-006, PRJ-007, CTN-004 through CTN-006, DES-011, DES-012, REQ-032 through REQ-049, TST-006 through TST-009 | User request — `tags-extract` and `update-tags` command, JSON reconciliation, EyeD3, and round-trip test requirements. |
 | REQ-052 through REQ-056, TST-010 | User request — full ID3 frame coverage (`TXXX`, `USLT`, `SYLT`), complete update reconciliation, and binary-frame preservation. |
 | REQ-057, REQ-058, TST-011 | User request — ID3 `POPM` popularimeter field support: extraction keying, JSON value schema, and frame construction. |
+| DES-013, DES-014, TST-012 | User request — UTF-8 file save/load support for JSON manifests and the version-check cache. |
 | REQ-050 | `src/json2mp3/core.py` `HELP_TEXT` — command synopses rendered by `main`. |
 | REQ-051 | `README.md` — install, command, and manifest-format documentation. |
