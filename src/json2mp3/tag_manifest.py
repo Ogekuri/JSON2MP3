@@ -28,7 +28,9 @@ from eyed3.id3 import (
 from eyed3.id3.frames import (
     CommentFrame,
     Frame,
+    ID3_FRAMES,
     LyricsFrame,
+    NONSTANDARD_ID3_FRAMES,
     PopularityFrame,
     TermsOfUseFrame,
     TextFrame,
@@ -108,6 +110,23 @@ _FRAME_ID_PATTERN = re.compile(r"[A-Z0-9]{3,4}")
 # * @satisfies REQ-053
 # */
 _LANG_KEY_FRAMES = frozenset({"COMM", "USLT", "SYLT"})
+
+#/** @brief Enumerates generic frame identifiers EyeD3 parses and builds as text
+# * or URL frames.
+# * @details Union of the standard and nonstandard EyeD3 frame tables filtered to
+# * TextFrame and UrlFrame subclasses, so every identifier extractable through
+# * the `_frame_key` TextFrame/UrlFrame branch is exactly the set re-appliable
+# * through `_parse_frame_key`; binary and structural identifiers such as APIC,
+# * GEOB, TOC, and MCDI are excluded and ignored as manifest keys.
+# * Complexity: O(1) at use time. Side effects: none.
+# * @satisfies REQ-054, REQ-056
+# */
+_SETTABLE_FRAME_FIDS = frozenset(
+    fid
+    for table in (ID3_FRAMES, NONSTANDARD_ID3_FRAMES)
+    for fid, (_, _, frame_class) in table.items()
+    if frame_class is not None and issubclass(frame_class, (TextFrame, UrlFrame))
+)
 
 #/** @brief Defines the injectable EyeD3-compatible MP3 loader signature. */
 AudioLoader = Callable[[str], Any]
@@ -374,15 +393,17 @@ def _frame_value(frame: Any) -> Any:
 def _parse_frame_key(field: str) -> dict[str, Any] | None:
     """
     @brief Parses one manifest tag key into a frame construction specification.
-    @details Validates `<FRAME>` plain identifiers, `TXXX:` and `WXXX:`
-    description keys, `POPM:` email keys, `COMM:`, `USLT:`, and `SYLT:`
-    language-description keys,
-    and `USER:` language keys; rejects identifiers covered by attribute fields.
+    @details Validates `<FRAME>` plain identifiers restricted to the EyeD3 text
+    and URL frame tables, `TXXX:` and `WXXX:` description keys, `POPM:` email
+    keys, `COMM:`, `USLT:`, and `SYLT:` language-description keys, and `USER:`
+    language keys; rejects identifiers covered by attribute fields and binary or
+    structural identifiers absent from the text/URL table so binary frames stay
+    preserved.
     Complexity: O(key-length). Side effects: none.
     @param field {str} Manifest tag key.
     @return {dict[str, Any] | None} Specification with fid bytes and optional
     description or lang, or null when the key is not a settable frame key.
-    @satisfies REQ-053, REQ-054, REQ-057, REQ-058
+    @satisfies REQ-053, REQ-054, REQ-056, REQ-057, REQ-058
     """
     head, separator, rest = field.partition(":")
     if head in {"TXXX", "WXXX"}:
@@ -413,6 +434,8 @@ def _parse_frame_key(field: str) -> dict[str, Any] | None:
     try:
         fid = _normalise_frame_id(head.encode("ascii"))
     except UnicodeEncodeError:
+        return None
+    if fid not in _SETTABLE_FRAME_FIDS:
         return None
     if fid in set(ATTRIBUTE_FRAME_IDS.values()):
         return None

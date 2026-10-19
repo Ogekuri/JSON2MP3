@@ -983,3 +983,185 @@ def test_update_tags_round_trips_tit1_and_empty_description_frames(
         ].items()
         if key != "POPM:user@example.com"
     } | {"POPM:user@example.com": {"rating": 196, "counter": 42}}
+
+
+def test_update_tags_ignores_binary_frame_manifest_keys(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies binary-frame manifest keys are ignored and images preserved.
+    @details Submits APIC, GEOB, TOC, and MCDI manifest keys together with an
+    unchanged title, asserting a zero status with no per-file error, a
+    byte-identical attached picture, and absence of bogus frames replacing
+    binary frames. Complexity: O(F). Side effects: temporary fixture and
+    manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-044, REQ-047, REQ-056
+    """
+    root = tmp_path / "music"
+    song = _write_frame_mp3(root, "song.mp3")
+    expected_image_data = _load_tag(song).frame_set[b"APIC"][0].image_data
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "song.mp3",
+                    "tags": {
+                        "title": "Title",
+                        "TXXX:Keep": "kept value",
+                        "TXXX:Drop": "dropped value",
+                        "COMM:eng:cmt": "hello",
+                        "USLT:ita:lr": "testo",
+                        "SYLT:eng:LyD": {
+                            "format": 2,
+                            "type": 1,
+                            "lyrics": [[1000, "la la"], [2500, "second line"]],
+                        },
+                        "track_num": [None, None],
+                        "disc_num": [None, None],
+                        "APIC": "jpeg-data-here",
+                        "GEOB": "object-data-here",
+                        "TOC": "chapter-one",
+                        "MCDI": "toc-id-here",
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    expected_status = 0
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    output = capsys.readouterr().out
+    assert "Error:" not in output
+    assert "Summary: updated=0 unchanged=1 errors=0" in output
+    tag = _load_tag(song)
+    images = tag.frame_set[b"APIC"]
+    assert len(images) == 1
+    assert images[0].image_data == expected_image_data
+    assert tag.frame_set[b"GEOB"] is None
+    assert tag.frame_set[b"TOC"] is None
+    assert tag.frame_set[b"MCDI"] is None
+    assert tag.title == "Title"
+
+
+def test_tags_extract_round_trips_every_attribute_field(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies all 13 attribute fields survive extraction and re-application.
+    @details Writes one MP3 fixture carrying every SUPPORTED_TAG_FIELDS value,
+    extracts it, re-applies the manifest with update_tags asserting an unchanged
+    file, and asserts a second extraction reproduces the first manifest exactly.
+    Complexity: O(T+F). Side effects: temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-042, REQ-049, REQ-052
+    """
+    root = tmp_path / "music"
+    path = root / "song.mp3"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_MPEG_FRAME * 8)
+    audio = eyed3.load(str(path))
+    assert audio is not None
+    tag = audio.initTag()
+    assert tag is not None
+    tag.title = "T"
+    tag.artist = "AR"
+    tag.album = "AL"
+    tag.album_artist = "AA"
+    tag.composer = "CO"
+    tag.publisher = "PU"
+    tag.copyright = "CR"
+    tag.genre = "Rock"
+    tag.track_num = (3, 12)
+    tag.disc_num = (1, 2)
+    tag.recording_date = "2024-01-02"
+    tag.release_date = "2024-02-03"
+    tag.original_release_date = "1999-12-31"
+    tag.save()
+
+    expected_attributes = {
+        "title": "T",
+        "artist": "AR",
+        "album": "AL",
+        "album_artist": "AA",
+        "composer": "CO",
+        "publisher": "PU",
+        "copyright": "CR",
+        "genre": "(17)Rock",  # EyeD3 str(Genre) display form; reparse-stable.
+        "track_num": [3, 12],
+        "disc_num": [1, 2],
+        "recording_date": "2024-01-02",
+        "release_date": "2024-02-03",
+        "original_release_date": "1999-12-31",
+    }
+
+    extracted = tmp_path / "extracted.json"
+    expected_status = 0
+    assert tags_extract(root, extracted) == expected_status
+    tags = json.loads(extracted.read_text(encoding="utf-8"))[0]["tags"]
+    assert tags == expected_attributes
+
+    actual_status = update_tags(root, extracted)
+    assert actual_status == expected_status
+    assert "Summary: updated=0 unchanged=1 errors=0" in capsys.readouterr().out
+
+    reproduced = tmp_path / "reproduced.json"
+    assert tags_extract(root, reproduced) == expected_status
+    reproduced_tags = json.loads(reproduced.read_text(encoding="utf-8"))[0][
+        "tags"
+    ]
+    assert reproduced_tags == expected_attributes
+
+
+def test_update_tags_tit1_grouping_adds_updates_and_removes(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies the TIT1 grouping frame add, update, and remove lifecycle.
+    @details Runs update_tags three times against one untagged fixture: first
+    adding TIT1, then changing its value, then removing it through an empty
+    tag object, asserting frame state and detail output after each run.
+    Complexity: O(F). Side effects: temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-042, REQ-043, REQ-044, TST-014
+    """
+    root = tmp_path / "music"
+    song = _write_untagged_mp3(root, "song.mp3")
+    expected_status = 0
+
+    added_manifest = tmp_path / "added.json"
+    added_manifest.write_text(
+        json.dumps([{"path": "song.mp3", "tags": {"TIT1": "Group One"}}]),
+        encoding="utf-8",
+    )
+    assert update_tags(root, added_manifest) == expected_status
+    assert _load_tag(song).frame_set[b"TIT1"][0].text == "Group One"
+    assert "added=TIT1" in capsys.readouterr().out
+
+    changed_manifest = tmp_path / "changed.json"
+    changed_manifest.write_text(
+        json.dumps([{"path": "song.mp3", "tags": {"TIT1": "Group Two"}}]),
+        encoding="utf-8",
+    )
+    assert update_tags(root, changed_manifest) == expected_status
+    assert _load_tag(song).frame_set[b"TIT1"][0].text == "Group Two"
+    assert "changed=TIT1" in capsys.readouterr().out
+
+    removed_manifest = tmp_path / "removed.json"
+    removed_manifest.write_text(
+        json.dumps([{"path": "song.mp3", "tags": {}}]),
+        encoding="utf-8",
+    )
+    assert update_tags(root, removed_manifest) == expected_status
+    assert _load_tag(song).frame_set[b"TIT1"] is None
+    assert "removed=TIT1" in capsys.readouterr().out
