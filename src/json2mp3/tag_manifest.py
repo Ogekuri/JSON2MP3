@@ -463,14 +463,16 @@ def _popularity_values(value: Any) -> tuple[int, int]:
     @brief Normalizes one POPM manifest value into rating and counter integers.
     @details Accepts a bare integer rating with implicit zero counter and an
     object with integer rating plus optional integer counter defaulting to
-    zero; rejects boolean values that Python would otherwise accept as
+    zero; a missing counter also falls back to the legacy EyeD3-CLI `count`
+    alias so rating-only and play-count-named objects map to the effective
+    frame values; rejects boolean values that Python would otherwise accept as
     integers. Rating range and counter sign remain enforced by the EyeD3
     PopularityFrame setters. Complexity: O(1). Side effects: none.
     @param value {Any} Manifest value bound to a `POPM:<email>` key.
     @return {tuple[int, int]} Rating value and play-counter value.
     @raises ValueError If the value is neither an integer rating nor an object
     with integer rating and optional integer counter.
-    @satisfies REQ-058
+    @satisfies REQ-042, REQ-058
     """
     if isinstance(value, bool):
         raise ValueError("POPM rating must be an integer")
@@ -479,12 +481,35 @@ def _popularity_values(value: Any) -> tuple[int, int]:
     if not isinstance(value, dict):
         raise ValueError("POPM manifest value must be an integer or an object")
     rating = value.get("rating")
-    counter = value.get("counter", 0)
+    counter = value.get("counter")
+    if counter is None:
+        counter = value.get("count", 0)
     if isinstance(rating, bool) or not isinstance(rating, int):
         raise ValueError("POPM rating must be an integer")
     if isinstance(counter, bool) or not isinstance(counter, int):
         raise ValueError("POPM counter must be an integer")
     return rating, counter
+
+
+def _canonical_value(field: str, value: Any) -> Any:
+    """
+    @brief Maps one tag value onto its canonical comparison form.
+    @details Returns the normalized (rating, counter) tuple for valid POPM
+    manifest values so every REQ-058-accepted shape denoting the same
+    effective popularimeter compares equal, and returns any other value
+    unchanged so invalid POPM shapes keep their raw form and surface the
+    application error. Complexity: O(1). Side effects: none.
+    @param field {str} Canonical manifest tag key.
+    @param value {Any} Extracted or manifest tag value.
+    @return {Any} Canonical comparison value.
+    @satisfies REQ-042, REQ-057, REQ-058
+    """
+    if field.startswith("POPM:") and value is not None:
+        try:
+            return _popularity_values(value)
+        except ValueError:
+            return value
+    return value
 
 
 def _build_frame(spec: dict[str, Any], value: Any) -> Any:
@@ -842,8 +867,10 @@ def update_tags(
     @brief Reconciles MP3 ID3 tags with a JSON manifest.
     @details Resolves every manifest path below root, reports missing files,
     applies changed, added, and removed attribute and frame keys once per changed
-    file while preserving binary frames, and summarizes updated, unchanged, and
-    error file counts. Complexity: O(E*(T+F)).
+    file while preserving binary frames, compares POPM values through their
+    canonical rating-counter form so equivalent manifest shapes do not rewrite
+    files, and summarizes updated, unchanged, and error file counts.
+    Complexity: O(E*(T+F)).
     @param mp3_root {str | Path} Base directory for manifest paths.
     @param json_filename {str | Path} JSON source manifest path.
     @param loader {AudioLoader} Injectable EyeD3-compatible MP3 loader.
@@ -895,7 +922,9 @@ def update_tags(
             for field in sorted(set(current) | set(desired)):
                 old_value = current.get(field)
                 new_value = desired.get(field)
-                if old_value == new_value:
+                if _canonical_value(field, old_value) == _canonical_value(
+                    field, new_value
+                ):
                     continue
                 if field not in current:
                     added.append(field)

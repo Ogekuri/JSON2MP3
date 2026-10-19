@@ -18,7 +18,11 @@ from eyed3.id3.frames import (
     Frame,
     LyricsFrame,
     PopularityFrame,
+    TermsOfUseFrame,
+    TextFrame,
+    UrlFrame,
     UserTextFrame,
+    UserUrlFrame,
 )
 
 from json2mp3.tag_manifest import tags_extract, update_tags
@@ -501,3 +505,193 @@ def test_update_tags_rejects_invalid_popm_values(tmp_path: Path, capsys: Any) ->
     output = capsys.readouterr().out
     assert output.count("Error: unable to apply tags to") == 2
     assert "Summary: updated=0 unchanged=0 errors=2" in output
+
+
+def test_update_tags_equivalent_popm_value_shapes_do_not_rewrite(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies update-tags skips equivalent POPM values without saving.
+    @details Applies one legacy EyeD3-CLI-shaped object carrying email, rating,
+    and count keys equal to the stored frame and one bare integer rating equal
+    to the second stored frame, asserting no detail output, an unchanged file
+    summary, and byte-identical fixture content. Complexity: O(T+F). Side
+    effects: temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-042, REQ-049, REQ-057, REQ-058, TST-011
+    """
+    root = tmp_path / "music"
+    song = _write_popm_mp3(root, "song.mp3")
+    original_bytes = song.read_bytes()
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "song.mp3",
+                    "tags": {
+                        "disc_num": [None, None],
+                        "track_num": [None, None],
+                        "POPM:user@example.com": {
+                            "email": "user@example.com",
+                            "rating": 196,
+                            "count": 42,
+                        },
+                        "POPM:": 5,
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    expected_status = 0
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    assert song.read_bytes() == original_bytes
+    output = capsys.readouterr().out
+    assert "Updated song.mp3" not in output
+    assert "Summary: updated=0 unchanged=1 errors=0" in output
+
+
+def test_update_tags_applies_popm_count_alias_when_counter_differs(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies update-tags applies the legacy count alias play counter.
+    @details Applies one minimal rating-only object equal to the stored
+    empty-email frame and one legacy count-aliased object whose play counter
+    differs, asserting only the differing key is reported and the stored frame
+    carries the aliased counter. Complexity: O(T+F). Side effects: temporary
+    fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-042, REQ-057, REQ-058, TST-011
+    """
+    root = tmp_path / "music"
+    song = _write_popm_mp3(root, "song.mp3")
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "song.mp3",
+                    "tags": {
+                        "disc_num": [None, None],
+                        "track_num": [None, None],
+                        "POPM:user@example.com": {"rating": 196, "count": 99},
+                        "POPM:": {"rating": 5},
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    expected_status = 0
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    tag = _load_tag(song)
+    popularity = {
+        frame.email.decode("ascii"): (frame.rating, frame.count)
+        for frame in tag.frame_set[b"POPM"]
+    }
+    assert popularity == {"user@example.com": (196, 99), "": (5, 0)}
+    output = capsys.readouterr().out
+    assert "changed=POPM:user@example.com" in output
+    assert "POPM:" not in output.replace("changed=POPM:user@example.com", "")
+    assert "Summary: updated=1 unchanged=0 errors=0" in output
+
+
+def _write_extra_frame_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates one MP3 fixture carrying URL, terms-of-use, and generic frames.
+    @details Writes deterministic MPEG frames, then attaches WXXX, USER, TIT1,
+    TBPM, and WOAR frames through the EyeD3 frame set, and saves the tag.
+    Complexity: O(frame-byte-count). Side effects: temporary fixture file
+    write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created fixture path.
+    @satisfies TST-010
+    """
+    path = _write_untagged_mp3(root, relative_path)
+    audio = eyed3.load(str(path))
+    assert audio is not None
+    tag = audio.initTag()
+    assert tag is not None
+    tag.frame_set[b"WXXX"] = UserUrlFrame(
+        description="site", url="https://example.org"
+    )
+    tag.frame_set[b"USER"] = TermsOfUseFrame(
+        text="All rights reserved", lang=b"eng"
+    )
+    tag.frame_set[b"TIT1"] = TextFrame(b"TIT1", text="Group")
+    tag.frame_set[b"TBPM"] = TextFrame(b"TBPM", text="128")
+    tag.frame_set[b"WOAR"] = UrlFrame(b"WOAR", url="https://artist.example")
+    tag.save()
+    return path
+
+
+def test_update_tags_round_trips_url_terms_of_use_and_generic_frames(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies update reconciliation over WXXX, USER, and generic frames.
+    @details Changes WXXX and USER values and the generic TIT1 text, adds the
+    generic TSSE text and WOAF URL frames, keeps TBPM equal, removes WOAR, and
+    asserts resulting frame state and detail output. Complexity: O(T+F). Side
+    effects: temporary fixture write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-042, REQ-043, REQ-044, REQ-053, REQ-054, TST-010
+    """
+    root = tmp_path / "music"
+    song = _write_extra_frame_mp3(root, "song.mp3")
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "song.mp3",
+                    "tags": {
+                        "disc_num": [None, None],
+                        "track_num": [None, None],
+                        "TBPM": "128",
+                        "TIT1": "New Group",
+                        "TSSE": "Lavf60.16.100",
+                        "USER:eng": "Updated terms",
+                        "WOAF": "https://file.example",
+                        "WXXX:site": "https://changed.example",
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    expected_status = 0
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    tag = _load_tag(song)
+    assert tag.frame_set[b"WXXX"][0].url == "https://changed.example"
+    assert tag.frame_set[b"USER"][0].text == "Updated terms"
+    assert tag.frame_set[b"USER"][0].lang == b"eng"
+    assert tag.frame_set[b"TIT1"][0].text == "New Group"
+    assert tag.frame_set[b"TBPM"][0].text == "128"
+    assert tag.frame_set[b"TSSE"][0].text == "Lavf60.16.100"
+    assert tag.frame_set[b"WOAF"][0].url == "https://file.example"
+    assert tag.frame_set[b"WOAR"] is None
+    output = capsys.readouterr().out
+    assert "changed=TIT1,USER:eng,WXXX:site" in output
+    assert "added=TSSE,WOAF" in output
+    assert "removed=WOAR" in output
+    assert "TBPM" not in output
+    assert "Summary: updated=1 unchanged=0 errors=0" in output

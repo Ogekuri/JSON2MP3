@@ -183,7 +183,7 @@ semantics; rendered verbatim for no-argument and --help invocations.
 
 ---
 
-# tag_manifest.py | Python | 926L | 31 symbols | 10 imports | 61 comments
+# tag_manifest.py | Python | 955L | 32 symbols | 10 imports | 62 comments
 > Path: `src/json2mp3/tag_manifest.py`
 
 ## Imports
@@ -314,14 +314,22 @@ lyrics list of `[timestamp, text]` pairs.
 - @param value {Any} Manifest scalar value.
 - @return {str} Frame text. @raises ValueError If the value is not a string scalar.
 
-### fn `def _popularity_values(value: Any) -> tuple[int, int]` `priv` (L461-489)
+### fn `def _popularity_values(value: Any) -> tuple[int, int]` `priv` (L461-493)
 - @brief Normalizes one POPM manifest value into rating and counter integers.
-- @details Accepts a bare integer rating with implicit zero counter and an object with integer rating plus optional integer counter defaulting to zero; rejects boolean values that Python would otherwise accept as integers. Rating range and counter sign remain enforced by the EyeD3 PopularityFrame setters. Complexity: O(1). Side effects: none.
+- @details Accepts a bare integer rating with implicit zero counter and an object with integer rating plus optional integer counter defaulting to zero; a missing counter also falls back to the legacy EyeD3-CLI `count` alias so rating-only and play-count-named objects map to the effective frame values; rejects boolean values that Python would otherwise accept as integers. Rating range and counter sign remain enforced by the EyeD3 PopularityFrame setters. Complexity: O(1). Side effects: none.
 - @param value {Any} Manifest value bound to a `POPM:<email>` key.
 - @return {tuple[int, int]} Rating value and play-counter value. @raises ValueError If the value is neither an integer rating nor an object with integer rating and optional integer counter.
-- @satisfies REQ-058
+- @satisfies REQ-042, REQ-058
 
-### fn `def _build_frame(spec: dict[str, Any], value: Any) -> Any` `priv` (L490-535)
+### fn `def _canonical_value(field: str, value: Any) -> Any` `priv` (L494-514)
+- @brief Maps one tag value onto its canonical comparison form.
+- @details Returns the normalized (rating, counter) tuple for valid POPM manifest values so every REQ-058-accepted shape denoting the same effective popularimeter compares equal, and returns any other value unchanged so invalid POPM shapes keep their raw form and surface the application error. Complexity: O(1). Side effects: none.
+- @param field {str} Canonical manifest tag key.
+- @param value {Any} Extracted or manifest tag value.
+- @return {Any} Canonical comparison value.
+- @satisfies REQ-042, REQ-057, REQ-058
+
+### fn `def _build_frame(spec: dict[str, Any], value: Any) -> Any` `priv` (L515-560)
 - @brief Constructs one EyeD3 frame from a key specification and value.
 - @details Builds UserTextFrame, UserUrlFrame, CommentFrame, LyricsFrame, TermsOfUseFrame, PopularityFrame, raw SYLT, generic UrlFrame, or generic TextFrame instances according to the specification frame identifier. Complexity: O(value-size). Side effects: none.
 - @param spec {dict[str, Any]} Output of _parse_frame_key for the target key.
@@ -329,7 +337,7 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {Any} Unattached EyeD3 frame object. @raises ValueError If the value shape is invalid for the frame type.
 - @satisfies REQ-043, REQ-055, REQ-057, REQ-058
 
-### fn `def _set_frame_field(tag: Any, spec: dict[str, Any], field: str, value: Any) -> None` `priv` (L536-561)
+### fn `def _set_frame_field(tag: Any, spec: dict[str, Any], field: str, value: Any) -> None` `priv` (L561-586)
 - @brief Replaces or removes the frames bound to one manifest frame key.
 - @details Removes every existing frame with the canonical key, then attaches one newly constructed frame when the value is non-null. Complexity: O(F) frames plus value size. Side effects: mutates the tag frame set.
 - @param tag {Any} Mutable EyeD3 tag object.
@@ -339,7 +347,7 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {None} No value. @raises ValueError If the value shape is invalid for the frame type.
 - @satisfies REQ-042, REQ-043, REQ-044
 
-### fn `def _attribute_value(tag: Any, field: str) -> Any` `priv` (L562-589)
+### fn `def _attribute_value(tag: Any, field: str) -> Any` `priv` (L587-614)
 - @brief Reads one supported EyeD3 tag attribute with raw-frame fallback.
 - @details Returns getattr(tag, field) when EyeD3 parses the attribute and falls back to the raw value of the first ATTRIBUTE_FRAME_IDS covering frame when EyeD3 raises GenreException for a stored value such as a numeric genre string absent from the standard genre map. Complexity: O(1) normally, O(F) frames on fallback. Side effects: none.
 - @param tag {Any} EyeD3 tag object.
@@ -347,21 +355,21 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {Any} Parsed attribute value, first covering-frame value, or null.
 - @satisfies REQ-049, REQ-052
 
-### fn `def _tag_values(tag: Any | None) -> dict[str, Any]` `priv` (L590-623)
+### fn `def _tag_values(tag: Any | None) -> dict[str, Any]` `priv` (L615-648)
 - @brief Extracts all manifest tag values from one EyeD3 tag object.
 - @details Reads each SUPPORTED_TAG_FIELDS attribute once through the _attribute_value GenreException raw-frame fallback, then scans the tag frame set and emits canonical keys for every additional text-bearing frame, including TXXX, WXXX, COMM, USLT, USER, raw SYLT, and POPM frames; binary frames are omitted. Complexity: O(T + F). Side effects: none.
 - @param tag {Any | None} EyeD3 tag object or null for an untagged file.
 - @return {dict[str, Any]} Tag-key to normalized-value mapping.
 - @satisfies DES-011, REQ-025, REQ-049, REQ-052, REQ-053, REQ-054, REQ-056, REQ-057
 
-### fn `def _load_audio(path: str) -> Any` `priv` (L624-635)
+### fn `def _load_audio(path: str) -> Any` `priv` (L649-660)
 - @brief Loads one MP3 through the EyeD3 module.
 - @details Delegates MP3 parsing to eyed3.load; null is returned by EyeD3 for unreadable or unsupported audio data. Complexity: external-library bound.
 - @param path {str} Existing target MP3 path.
 - @return {Any} EyeD3 audio object or null.
 - @satisfies CTN-004
 
-### fn `def _normalise_relative_path(root: Path, audio_file: Path) -> str` `priv` (L636-648)
+### fn `def _normalise_relative_path(root: Path, audio_file: Path) -> str` `priv` (L661-673)
 - @brief Produces a POSIX-relative manifest key for one scanned file.
 - @details Computes the path relative to root and converts platform separators to POSIX separators. Complexity: O(path-length). Side effects: none.
 - @param root {Path} Resolved MP3 scan root.
@@ -369,16 +377,16 @@ lyrics list of `[timestamp, text]` pairs.
 - @return {str} Normalized relative manifest path.
 - @satisfies REQ-048
 
-### fn `def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]` `priv` (L649-668)
+### fn `def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]` `priv` (L674-693)
 - @brief Recursively discovers MP3 files below a directory.
 - @details Selects regular files whose suffix equals .mp3 case-insensitively and sorts output by normalized relative path. Complexity: O(F log F).
 - @param root {Path} Candidate MP3 root directory.
 - @return {list[tuple[str, Path]]} Sorted manifest-key and absolute-path pairs. @raises ValueError If root is not a directory.
 - @satisfies REQ-032, REQ-048
 
-### fn `def _read_manifest(` `priv` (L669-672)
+### fn `def _read_manifest(` `priv` (L694-697)
 
-### fn `def _write_manifest(json_file: Path, manifest: dict[str, dict[str, Any]]) -> None` `priv` (L708-728)
+### fn `def _write_manifest(json_file: Path, manifest: dict[str, dict[str, Any]]) -> None` `priv` (L733-753)
 - @brief Loads a JSON array manifest into a relative-path index.
 - @brief Serializes a normalized tag index as a deterministic JSON array.
 - @details Returns an empty index for a missing destination, validates entry
@@ -395,7 +403,7 @@ Complexity: O(E), where E is entry count. Side effects: file read.
 - @satisfies REQ-033, REQ-040, REQ-048
 - @satisfies DES-012, REQ-033
 
-### fn `def _changed_fields(old_tags: dict[str, Any], new_tags: dict[str, Any]) -> list[str]` `priv` (L729-746)
+### fn `def _changed_fields(old_tags: dict[str, Any], new_tags: dict[str, Any]) -> list[str]` `priv` (L754-771)
 - @brief Lists tag keys with unequal old and new values.
 - @details Compares the union of keys in lexical order and omits unchanged keys, covering attribute keys and frame keys uniformly. Complexity: O(T log T). Side effects: none.
 - @param old_tags {dict[str, Any]} Previous key-value mapping.
@@ -403,9 +411,9 @@ Complexity: O(E), where E is entry count. Side effects: file read.
 - @return {list[str]} Lexically ordered differing tag keys.
 - @satisfies REQ-037, REQ-046
 
-### fn `def tags_extract(` (L747-751)
+### fn `def tags_extract(` (L772-776)
 
-### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L794-834)
+### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L819-859)
 - @brief Extracts recursive MP3 ID3 data and reconciles one JSON manifest.
 - @brief Assigns or clears one manifest tag key on an EyeD3 tag object.
 - @details Loads existing entries, replaces scanned entries by normalized path,
@@ -424,7 +432,7 @@ changed existing-tag details plus file-count summary. Complexity: O(F log F).
 - @satisfies REQ-032, REQ-039, REQ-048, REQ-049, REQ-052, REQ-056
 - @satisfies REQ-042, REQ-043, REQ-044, REQ-053
 
-### fn `def update_tags(` (L835-839)
+### fn `def update_tags(` (L860-864)
 
 ## Symbol Index
 |Symbol|Kind|Vis|Lines|Sig|
@@ -446,18 +454,19 @@ changed existing-tag details plus file-count summary. Complexity: O(F log F).
 |`_is_settable_key`|fn|priv|422-432|def _is_settable_key(field: str) -> bool|
 |`_matching_frames`|fn|priv|433-447|def _matching_frames(tag: Any, field: str) -> list[Any]|
 |`_text_value`|fn|priv|448-460|def _text_value(value: Any) -> str|
-|`_popularity_values`|fn|priv|461-489|def _popularity_values(value: Any) -> tuple[int, int]|
-|`_build_frame`|fn|priv|490-535|def _build_frame(spec: dict[str, Any], value: Any) -> Any|
-|`_set_frame_field`|fn|priv|536-561|def _set_frame_field(tag: Any, spec: dict[str, Any], fiel...|
-|`_attribute_value`|fn|priv|562-589|def _attribute_value(tag: Any, field: str) -> Any|
-|`_tag_values`|fn|priv|590-623|def _tag_values(tag: Any | None) -> dict[str, Any]|
-|`_load_audio`|fn|priv|624-635|def _load_audio(path: str) -> Any|
-|`_normalise_relative_path`|fn|priv|636-648|def _normalise_relative_path(root: Path, audio_file: Path...|
-|`_scan_mp3_files`|fn|priv|649-668|def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]|
-|`_read_manifest`|fn|priv|669-672|def _read_manifest(|
-|`_write_manifest`|fn|priv|708-728|def _write_manifest(json_file: Path, manifest: dict[str, ...|
-|`_changed_fields`|fn|priv|729-746|def _changed_fields(old_tags: dict[str, Any], new_tags: d...|
-|`tags_extract`|fn|pub|747-751|def tags_extract(|
-|`_set_tag_field`|fn|priv|794-834|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
-|`update_tags`|fn|pub|835-839|def update_tags(|
+|`_popularity_values`|fn|priv|461-493|def _popularity_values(value: Any) -> tuple[int, int]|
+|`_canonical_value`|fn|priv|494-514|def _canonical_value(field: str, value: Any) -> Any|
+|`_build_frame`|fn|priv|515-560|def _build_frame(spec: dict[str, Any], value: Any) -> Any|
+|`_set_frame_field`|fn|priv|561-586|def _set_frame_field(tag: Any, spec: dict[str, Any], fiel...|
+|`_attribute_value`|fn|priv|587-614|def _attribute_value(tag: Any, field: str) -> Any|
+|`_tag_values`|fn|priv|615-648|def _tag_values(tag: Any | None) -> dict[str, Any]|
+|`_load_audio`|fn|priv|649-660|def _load_audio(path: str) -> Any|
+|`_normalise_relative_path`|fn|priv|661-673|def _normalise_relative_path(root: Path, audio_file: Path...|
+|`_scan_mp3_files`|fn|priv|674-693|def _scan_mp3_files(root: Path) -> list[tuple[str, Path]]|
+|`_read_manifest`|fn|priv|694-697|def _read_manifest(|
+|`_write_manifest`|fn|priv|733-753|def _write_manifest(json_file: Path, manifest: dict[str, ...|
+|`_changed_fields`|fn|priv|754-771|def _changed_fields(old_tags: dict[str, Any], new_tags: d...|
+|`tags_extract`|fn|pub|772-776|def tags_extract(|
+|`_set_tag_field`|fn|priv|819-859|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
+|`update_tags`|fn|pub|860-864|def update_tags(|
 
