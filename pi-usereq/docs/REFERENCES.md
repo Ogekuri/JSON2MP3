@@ -183,7 +183,7 @@ semantics; rendered verbatim for no-argument and --help invocations.
 
 ---
 
-# tag_manifest.py | Python | 955L | 32 symbols | 10 imports | 62 comments
+# tag_manifest.py | Python | 961L | 32 symbols | 10 imports | 62 comments
 > Path: `src/json2mp3/tag_manifest.py`
 
 ## Imports

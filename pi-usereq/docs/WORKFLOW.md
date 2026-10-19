@@ -98,7 +98,7 @@
             - `_render_sylt_payload(...)`: serialize one SYLT manifest value into raw payload bytes [`src/json2mp3/tag_manifest.py`]
               - `_id3_encoding_for(...)`: select Latin-1 or UTF-8 with a one-byte terminator for deterministic SYLT serialization [`src/json2mp3/tag_manifest.py`]
               - `_encode_id3_string(...)`: encode one string with a selected ID3 encoding [`src/json2mp3/tag_manifest.py`]
-        - external: EyeD3 tag save when a file has differences; binary frames such as attached pictures are never removed
+        - external: EyeD3 tag save when a file has differences; binary frames such as attached pictures are never removed; save failures such as the ID3v2.2 `NotImplementedError` and OS errors are reported as per-file errors without aborting the run
     - `_run_tool_command(...)`: execute or print the `uv` tool install/uninstall command [`src/json2mp3/core.py`]
       - external: platform detection; child-process spawn (`subprocess.run`) into PROC:uv-tool with inherited stdio
       - `_print_coloured(...)`: print the bright-red message when the child cannot be spawned [`src/json2mp3/core.py`]

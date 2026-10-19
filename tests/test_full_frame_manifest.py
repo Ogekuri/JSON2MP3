@@ -695,3 +695,291 @@ def test_update_tags_round_trips_url_terms_of_use_and_generic_frames(
     assert "removed=WOAR" in output
     assert "TBPM" not in output
     assert "Summary: updated=1 unchanged=0 errors=0" in output
+
+
+def _write_id3v22_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates one MP3 fixture carrying a hand-rendered ID3v2.2 tag.
+    @details EyeD3 cannot write ID3v2.2 tags, so this helper prepends raw tag
+    bytes with the v2.2 syncsafe header, a TT2 title frame, and an SLT
+    synchronized-lyrics frame to deterministic MPEG frames. Complexity:
+    O(frame-byte-count). Side effects: temporary fixture file write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created fixture path.
+    @satisfies TST-013
+    """
+    def frame22(fid: bytes, data: bytes) -> bytes:
+        return fid + len(data).to_bytes(3, "big") + data
+
+    tag_size = len(frame22(b"TT2", b"\x00Title22")) + len(
+        frame22(b"SLT", _SYLT_PAYLOAD)
+    )
+    syncsafe_size = bytes(
+        [
+            (tag_size >> 21) & 0x7F,
+            (tag_size >> 14) & 0x7F,
+            (tag_size >> 7) & 0x7F,
+            tag_size & 0x7F,
+        ]
+    )
+    v22_tag = (
+        b"ID3\x02\x00\x00"
+        + syncsafe_size
+        + frame22(b"TT2", b"\x00Title22")
+        + frame22(b"SLT", _SYLT_PAYLOAD)
+    )
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(v22_tag + _MPEG_FRAME * 8)
+    return path
+
+
+def test_tags_extract_and_update_round_trip_id3v22_sylt(tmp_path: Path) -> None:
+    """
+    @brief Verifies SYLT and title extraction from ID3v2.2 tags round trips.
+    @details EyeD3 normalizes ID3v2.2 frame identifiers on parse and cannot
+    write ID3v2.2 tags, so the fixture tag is extracted through tags-extract
+    and restored through update-tags onto an untagged ID3v2.4 target, asserting
+    byte-stable manifest equivalence. Complexity: O(F*(T+F)). Side effects:
+    temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @return {None} No value.
+    @satisfies REQ-052, REQ-053, REQ-054, REQ-055, TST-013
+    """
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    _write_id3v22_mp3(source_root, "old22.mp3")
+    _write_untagged_mp3(target_root, "old22.mp3")
+    source_manifest = tmp_path / "source.json"
+    reproduced_manifest = tmp_path / "reproduced.json"
+    source_audio = eyed3.load(str(source_root / "old22.mp3"))
+    assert source_audio is not None
+    assert source_audio.tag is not None
+    assert source_audio.tag.version == (2, 2, 0)
+
+    expected_status = 0
+    extracted_status = tags_extract(source_root, source_manifest)
+    updated_status = update_tags(target_root, source_manifest)
+    reproduced_status = tags_extract(target_root, reproduced_manifest)
+
+    assert extracted_status == expected_status
+    assert updated_status == expected_status
+    assert reproduced_status == expected_status
+    tags = json.loads(source_manifest.read_text(encoding="utf-8"))[0]["tags"]
+    assert tags["title"] == "Title22"
+    assert tags["SYLT:eng:LyD"] == {
+        "format": 2,
+        "type": 1,
+        "lyrics": [[1000, "la la"], [2500, "second line"]],
+    }
+    assert (
+        reproduced_manifest.read_text(encoding="utf-8")
+        == source_manifest.read_text(encoding="utf-8")
+    )
+
+
+def test_update_tags_reports_error_for_unsaveable_id3v22_file(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies update-tags reports ID3v2.2 save failure as a file error.
+    @details EyeD3 raises NotImplementedError for ID3v2.2 writes, so applying a
+    changed title to the v2.2 fixture must count one per-file error, leave the
+    fixture bytes untouched, still update a writable sibling entry, and still
+    print the closing summary. Complexity: O(E*(T+F)). Side effects: temporary
+    fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-041, REQ-047, TST-013
+    """
+    root = tmp_path / "music"
+    old22 = _write_id3v22_mp3(root, "old22.mp3")
+    _write_untagged_mp3(root, "fresh.mp3")
+    original_bytes = old22.read_bytes()
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {"path": "old22.mp3", "tags": {"title": "NewTitle"}},
+                {"path": "fresh.mp3", "tags": {"title": "Fresh"}},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    expected_status = 1
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    assert old22.read_bytes() == original_bytes
+    fresh_tag = _load_tag(root / "fresh.mp3")
+    assert fresh_tag.title == "Fresh"
+    output = capsys.readouterr().out
+    assert "Error: unable to save tags to" in output
+    assert "Unable to write ID3 v2.2" in output
+    assert "Updated fresh.mp3" in output
+    assert "Summary: updated=1 unchanged=0 errors=1" in output
+
+
+def _write_multi_sylt_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates one MP3 fixture carrying two same-language SYLT frames.
+    @details Attaches raw SYLT frames with descriptors LyD and Alt under one
+    eng language through the EyeD3 frame set, and saves the tag. Complexity:
+    O(frame-byte-count). Side effects: temporary fixture file write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created fixture path.
+    @satisfies TST-013
+    """
+    path = _write_untagged_mp3(root, relative_path)
+    audio = eyed3.load(str(path))
+    assert audio is not None
+    tag = audio.initTag()
+    assert tag is not None
+    first = Frame(b"SYLT")
+    first.data = _SYLT_PAYLOAD
+    second = Frame(b"SYLT")
+    second.data = _SYLT_PAYLOAD.replace(b"LyD", b"Alt")
+    tag.frame_set[b"SYLT"] = first
+    tag.frame_set[b"SYLT"] = second
+    tag.save()
+    return path
+
+
+def test_update_tags_round_trips_multiple_same_language_sylt_frames(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies one of multiple same-language SYLT keys changes in place.
+    @details Extracts both SYLT:eng:LyD and SYLT:eng:Alt keys, applies a
+    manifest that replaces only the Alt lyrics, asserts the LyD frame is
+    preserved, and reproduces the applied manifest by re-extraction.
+    Complexity: O(T+F). Side effects: temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-042, REQ-043, REQ-044, REQ-052, REQ-053, REQ-055, TST-013
+    """
+    root = tmp_path / "music"
+    song = _write_multi_sylt_mp3(root, "song.mp3")
+    extracted = tmp_path / "extracted.json"
+
+    expected_status = 0
+    assert tags_extract(root, extracted) == expected_status
+    entries = json.loads(extracted.read_text(encoding="utf-8"))
+    tags = entries[0]["tags"]
+    assert tags["SYLT:eng:LyD"]["lyrics"] == [[1000, "la la"], [2500, "second line"]]
+    assert tags["SYLT:eng:Alt"]["lyrics"] == [[1000, "la la"], [2500, "second line"]]
+    tags["SYLT:eng:Alt"]["lyrics"] = [[0, "uno"], [9000, "due"]]
+    modified = tmp_path / "modified.json"
+    modified.write_text(json.dumps(entries), encoding="utf-8")
+
+    actual_status = update_tags(root, modified)
+
+    assert actual_status == expected_status
+    tag = _load_tag(song)
+    assert len(tag.frame_set[b"SYLT"]) == 2
+    output = capsys.readouterr().out
+    assert "changed=SYLT:eng:Alt" in output
+    assert "SYLT:eng:LyD" not in output
+    assert "Summary: updated=1 unchanged=0 errors=0" in output
+    reproduced = tmp_path / "reproduced.json"
+    assert tags_extract(root, reproduced) == expected_status
+    assert json.loads(reproduced.read_text(encoding="utf-8")) == json.loads(
+        modified.read_text(encoding="utf-8")
+    )
+
+
+def _write_grouping_mp3(root: Path, relative_path: str) -> Path:
+    """
+    @brief Creates one MP3 fixture carrying grouping and empty-key frames.
+    @details Attaches TIT1 and TKEY generic text frames, an empty-description
+    COMM:eng frame, an empty-description USLT:und frame, and one rated POPM
+    frame through the EyeD3 frame set, and saves the tag. Complexity:
+    O(frame-byte-count). Side effects: temporary fixture file write.
+    @param root {Path} Temporary fixture root.
+    @param relative_path {str} Relative MP3 fixture path.
+    @return {Path} Created fixture path.
+    @satisfies TST-014
+    """
+    path = _write_untagged_mp3(root, relative_path)
+    audio = eyed3.load(str(path))
+    assert audio is not None
+    tag = audio.initTag()
+    assert tag is not None
+    tag.frame_set[b"TIT1"] = TextFrame(b"TIT1", text="Group")
+    tag.frame_set[b"TKEY"] = TextFrame(b"TKEY", text="A")
+    tag.frame_set[b"COMM"] = CommentFrame(description="", lang=b"eng", text="c")
+    tag.frame_set[b"USLT"] = LyricsFrame(
+        description="", lang=b"und", text="l"
+    )
+    tag.frame_set[b"POPM"] = PopularityFrame(
+        email=b"user@example.com", rating=196, count=42
+    )
+    tag.save()
+    return path
+
+
+def test_update_tags_round_trips_tit1_and_empty_description_frames(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies TIT1 grouping and empty-description keys round trip.
+    @details Extracts TIT1, TKEY, COMM:eng:, USLT:und:, and the POPM frame,
+    applies a manifest that regroups TIT1, keeps the remaining keys, and binds
+    the popularimeter through the legacy EyeD3-CLI object, asserting only TIT1
+    changes and a re-extraction reproduces the applied manifest. Complexity:
+    O(T+F). Side effects: temporary fixture and manifest writes.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-042, REQ-052, REQ-053, REQ-054, REQ-057, REQ-059, TST-014
+    """
+    root = tmp_path / "music"
+    _write_grouping_mp3(root, "song.mp3")
+    extracted = tmp_path / "extracted.json"
+
+    expected_status = 0
+    assert tags_extract(root, extracted) == expected_status
+    entries = json.loads(extracted.read_text(encoding="utf-8"))
+    tags = entries[0]["tags"]
+    assert tags["TIT1"] == "Group"
+    assert tags["TKEY"] == "A"
+    assert tags["COMM:eng:"] == "c"
+    assert tags["USLT:und:"] == "l"
+    assert tags["POPM:user@example.com"] == {"rating": 196, "counter": 42}
+    tags["TIT1"] = "New Group"
+    tags["POPM:user@example.com"] = {
+        "email": "user@example.com",
+        "rating": 196,
+        "count": 42,
+    }
+    modified = tmp_path / "modified.json"
+    modified.write_text(json.dumps(entries), encoding="utf-8")
+
+    actual_status = update_tags(root, modified)
+
+    assert actual_status == expected_status
+    output = capsys.readouterr().out
+    assert "changed=TIT1" in output
+    assert "Summary: updated=1 unchanged=0 errors=0" in output
+    reproduced = tmp_path / "reproduced.json"
+    assert tags_extract(root, reproduced) == expected_status
+    reproduced_tags = json.loads(reproduced.read_text(encoding="utf-8"))[0][
+        "tags"
+    ]
+    assert reproduced_tags["TIT1"] == "New Group"
+    assert reproduced_tags["POPM:user@example.com"] == {
+        "rating": 196,
+        "counter": 42,
+    }
+    assert reproduced_tags == {
+        key: value
+        for key, value in json.loads(modified.read_text(encoding="utf-8"))[0][
+            "tags"
+        ].items()
+        if key != "POPM:user@example.com"
+    } | {"POPM:user@example.com": {"rating": 196, "counter": 42}}

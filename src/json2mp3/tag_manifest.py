@@ -869,13 +869,14 @@ def update_tags(
     applies changed, added, and removed attribute and frame keys once per changed
     file while preserving binary frames, compares POPM values through their
     canonical rating-counter form so equivalent manifest shapes do not rewrite
-    files, and summarizes updated, unchanged, and error file counts.
+    files, reports per-file save failures such as unwritable ID3v2.2 tags or OS
+    errors, and summarizes updated, unchanged, and error file counts.
     Complexity: O(E*(T+F)).
     @param mp3_root {str | Path} Base directory for manifest paths.
     @param json_filename {str | Path} JSON source manifest path.
     @param loader {AudioLoader} Injectable EyeD3-compatible MP3 loader.
     @return {int} Zero without errors; one for per-file errors; two for manifest errors.
-    @satisfies REQ-040, REQ-042, REQ-043, REQ-044, REQ-049, REQ-056
+    @satisfies REQ-040, REQ-042, REQ-043, REQ-044, REQ-047, REQ-049, REQ-056, REQ-059
     """
     root = Path(mp3_root).expanduser().resolve()
     json_file = Path(json_filename).expanduser().resolve()
@@ -940,7 +941,12 @@ def update_tags(
         if not changed and not added and not removed:
             unchanged += 1
             continue
-        tag.save()
+        try:
+            tag.save()
+        except (NotImplementedError, OSError) as error:
+            print(f"Error: unable to save tags to {target}: {error}")
+            errors += 1
+            continue
         updated += 1
         details = []
         if changed:
