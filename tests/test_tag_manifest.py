@@ -233,8 +233,9 @@ def test_tags_extract_reconciles_added_updated_and_removed_entries(
 ) -> None:
     """
     @brief Verifies recursive extraction reconciles manifest entries and details.
-    @details Exercises changed existing tags, new nested files, and stale entries
-    while asserting detail output excludes additions and removals.
+    @details Runs with --delete: exercises changed existing tags, new nested
+    files, and stale entries while asserting detail output excludes additions
+    and removals.
     Complexity: O(F log F). Side effects: temporary manifest write.
     @param tmp_path {Path} Pytest isolated temporary directory.
     @param capsys {Any} Pytest stdout capture fixture.
@@ -262,7 +263,7 @@ def test_tags_extract_reconciles_added_updated_and_removed_entries(
     )
 
     expected_status = 0
-    actual_status = tags_extract(root, manifest, loader=loader)
+    actual_status = tags_extract(root, manifest, loader=loader, delete=True)
 
     assert actual_status == expected_status
     assert json.loads(manifest.read_text(encoding="utf-8")) == [
@@ -281,8 +282,9 @@ def test_update_tags_changes_adds_removes_and_reports_missing_files(
 ) -> None:
     """
     @brief Verifies update-tags applies field reconciliation and error reporting.
-    @details Exercises changed, added, removed, unchanged, and missing-file paths
-    against independent fake audio fixtures. Complexity: O(E*T).
+    @details Runs with --delete: exercises changed, added, removed, unchanged,
+    and missing-file paths against independent fake audio fixtures.
+    Complexity: O(E*T).
     @param tmp_path {Path} Pytest isolated temporary directory.
     @param capsys {Any} Pytest stdout capture fixture.
     @return {None} No value.
@@ -315,7 +317,7 @@ def test_update_tags_changes_adds_removes_and_reports_missing_files(
     )
 
     expected_status = 1
-    actual_status = update_tags(root, manifest, loader=loader)
+    actual_status = update_tags(root, manifest, loader=loader, delete=True)
 
     assert actual_status == expected_status
     assert song_tag.title == "New"
@@ -330,6 +332,106 @@ def test_update_tags_changes_adds_removes_and_reports_missing_files(
     assert "artist" not in output
     assert "Error: MP3 file not found:" in output
     assert "Summary: updated=1 unchanged=1 errors=1" in output
+
+
+def test_tags_extract_without_delete_merges_and_preserves_entries(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies tags-extract merges extracted values without --delete.
+    @details Extracts scanned files into an existing manifest while preserving
+    tag keys absent from the extraction and entries absent from the scan,
+    asserting merged entry state and a zero removed count. Complexity:
+    O(F log F). Side effects: temporary manifest write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-035, REQ-060, REQ-061, TST-006
+    """
+    root = tmp_path / "music"
+    song = _write_mp3(root, "song.mp3")
+    new_song = _write_mp3(root, "nested/new.MP3")
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "song.mp3",
+                    "tags": {"title": "Old", "artist": "Artist", "album": "Preserved"},
+                },
+                {"path": "stale.mp3", "tags": {"title": "Stale"}},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    loader = _loader_for(
+        {
+            song.resolve(): FakeAudio(FakeTag(title="Current", artist="Artist")),
+            new_song.resolve(): FakeAudio(FakeTag(title="New")),
+        }
+    )
+
+    expected_status = 0
+    actual_status = tags_extract(root, manifest, loader=loader)
+
+    assert actual_status == expected_status
+    assert json.loads(manifest.read_text(encoding="utf-8")) == [
+        {"path": "nested/new.MP3", "tags": {"title": "New"}},
+        {
+            "path": "song.mp3",
+            "tags": {"album": "Preserved", "artist": "Artist", "title": "Current"},
+        },
+        {"path": "stale.mp3", "tags": {"title": "Stale"}},
+    ]
+    output = capsys.readouterr().out
+    assert "Updated song.mp3: title" in output
+    assert "stale.mp3" not in output
+    assert "Summary: updated=1 added=1 removed=0" in output
+
+
+def test_update_tags_without_delete_preserves_extra_tags(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies update-tags preserves tags absent from the manifest.
+    @details Runs without --delete against a fake audio fixture, applies
+    changed and added fields, and asserts the tag absent from the manifest
+    keeps its value with exactly one save. Complexity: O(E*T).
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-060, REQ-062, TST-007
+    """
+    root = tmp_path / "music"
+    song = _write_mp3(root, "song.mp3")
+    song_tag = FakeTag(title="Old", artist="Artist", publisher="Keep Me")
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {
+                    "path": "song.mp3",
+                    "tags": {"title": "New", "album": "Added"},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    loader = _loader_for({song.resolve(): FakeAudio(song_tag)})
+
+    expected_status = 0
+    actual_status = update_tags(root, manifest, loader=loader)
+
+    assert actual_status == expected_status
+    assert song_tag.title == "New"
+    assert song_tag.album == "Added"
+    assert song_tag.publisher == "Keep Me"
+    assert song_tag.save_calls == 1
+    output = capsys.readouterr().out
+    assert "changed=title" in output
+    assert "added=album" in output
+    assert "removed=" not in output
+    assert "Summary: updated=1 unchanged=0 errors=0" in output
 
 
 def test_extract_then_update_preserves_already_matching_fixture_bytes(

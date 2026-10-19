@@ -49,6 +49,10 @@ Commands:
   sync          - Write Mutagen ID3 frames from a track manifest to MP3 files.
   tags-extract  - Extract EyeD3 tags of nested MP3 files into a JSON manifest.
   update-tags   - Apply EyeD3 tag values from a JSON manifest to MP3 files.
+
+Shared Command Option:
+  --delete    - Remove destination tags absent from the source; omit it to
+               only add missing and update differing tags.
 """
 
 
@@ -289,16 +293,22 @@ TAG_COMMAND_DESCRIPTIONS = {
 def _tag_command_parser(command: str) -> argparse.ArgumentParser:
     """
     @brief Creates the shared parser for an EyeD3 manifest command.
-    @details Defines positional MP3-root and JSON-manifest arguments plus the
+    @details Defines positional MP3-root and JSON-manifest arguments, the
+    boolean --delete removal switch shared by both manifest commands, and the
     command description consumed by command-specific help. Complexity: O(1).
     Side effects: none.
     @param command {str} CLI command name.
     @return {argparse.ArgumentParser} Configured parser instance.
-    @satisfies REQ-032, REQ-040
+    @satisfies REQ-032, REQ-040, REQ-060
     """
     parser = argparse.ArgumentParser(prog=f"{PROGRAM} {command}", description=TAG_COMMAND_DESCRIPTIONS[command])
     parser.add_argument("mp3_root", help="recursive MP3 root directory")
     parser.add_argument("json_file", help="JSON tag manifest path")
+    parser.add_argument(
+        "--delete",
+        action="store_true",
+        help="remove destination tags absent from the source",
+    )
     return parser
 
 
@@ -306,12 +316,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     @brief Dispatches command-line arguments to management and tag operations.
     @details Performs the existing release check before routing recognized command
-    sequences; delegates EyeD3 manifest commands without altering sync behavior.
-    Complexity: O(1) excluding delegated operations. Side effects: stdout, network,
-    filesystem, and optional subprocess interactions.
+    sequences; delegates EyeD3 manifest commands forwarding the shared --delete
+    switch without altering sync behavior. Complexity: O(1) excluding delegated
+    operations. Side effects: stdout, network, filesystem, and optional
+    subprocess interactions.
     @param argv {Sequence[str] | None} Explicit CLI tokens or null for sys.argv.
     @return {int} Delegated command status or CLI validation status.
-    @satisfies PRJ-003, PRJ-006, PRJ-007, REQ-001, REQ-032, REQ-040
+    @satisfies PRJ-003, PRJ-006, PRJ-007, REQ-001, REQ-032, REQ-040, REQ-060
     """
     arguments = list(sys.argv[1:] if argv is None else argv)
     check_for_update(force="--ver" in arguments or "--version" in arguments)
@@ -338,10 +349,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return sync_from_json(parsed.json_file, dry_run=parsed.dry_run)
     if arguments[0] == "tags-extract":
         parsed = _tag_command_parser("tags-extract").parse_args(arguments[1:])
-        return tags_extract(parsed.mp3_root, parsed.json_file)
+        return tags_extract(parsed.mp3_root, parsed.json_file, delete=parsed.delete)
     if arguments[0] == "update-tags":
         parsed = _tag_command_parser("update-tags").parse_args(arguments[1:])
-        return update_tags(parsed.mp3_root, parsed.json_file)
+        return update_tags(parsed.mp3_root, parsed.json_file, delete=parsed.delete)
 
     _print_coloured(RED, f"Unknown command: {' '.join(arguments)}")
     print(HELP_TEXT, end="")

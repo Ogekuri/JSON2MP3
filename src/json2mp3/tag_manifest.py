@@ -796,18 +796,29 @@ def tags_extract(
     mp3_root: str | Path,
     json_filename: str | Path,
     *,
+    delete: bool = False,
     loader: AudioLoader = _load_audio,
 ) -> int:
     """
     @brief Extracts recursive MP3 ID3 data and reconciles one JSON manifest.
-    @details Loads existing entries, replaces scanned entries by normalized path,
-    removes stale entries, writes the complete sorted array, and emits only
-    changed existing-tag details plus file-count summary. Complexity: O(F log F).
+    @details Loads existing entries, resolves every scanned entry by normalized
+    path, writes the complete sorted array, and emits only changed existing-tag
+    details plus file-count summary. Without --delete, extracted values are
+    merged into matching existing entries by updating differing values and
+    adding missing values while preserving existing keys absent from the
+    extraction, and entries absent from the scan are preserved with a zero
+    removed count. With --delete, matching entries are replaced by the
+    extracted tags and entries absent from the scan are removed.
+    Complexity: O(F log F).
     @param mp3_root {str | Path} Recursive MP3 directory root.
     @param json_filename {str | Path} JSON destination manifest path.
+    @param delete {bool} True enables replacement of matching entries and
+    removal of entries absent from the scan; False merges and preserves them.
+    Defaults to False.
     @param loader {AudioLoader} Injectable EyeD3-compatible MP3 loader.
     @return {int} Zero on successful reconciliation; two on input/manifest error.
-    @satisfies REQ-032, REQ-039, REQ-048, REQ-049, REQ-052, REQ-056
+    @satisfies REQ-032, REQ-034, REQ-035, REQ-039, REQ-048, REQ-049, REQ-052,
+    REQ-056, REQ-060, REQ-061
     """
     root = Path(mp3_root).expanduser().resolve()
     json_file = Path(json_filename).expanduser().resolve()
@@ -818,17 +829,22 @@ def tags_extract(
         print(f"Error: {error}")
         return 2
 
-    current: dict[str, dict[str, Any]] = {}
+    current: dict[str, dict[str, Any]] = {} if delete else dict(existing)
     added = 0
     updated = 0
     for relative_path, audio_file in scanned:
         audio = loader(str(audio_file))
         tags = _tag_values(None if audio is None else audio.tag)
-        current[relative_path] = tags
-        if relative_path not in existing:
+        previous = existing.get(relative_path)
+        if previous is None or delete:
+            merged = tags
+        else:
+            merged = {**previous, **tags}
+        current[relative_path] = merged
+        if previous is None:
             added += 1
             continue
-        changes = _changed_fields(existing[relative_path], tags)
+        changes = _changed_fields(previous, merged)
         if changes:
             updated += 1
             print(f"Updated {relative_path}: {', '.join(changes)}")
@@ -884,6 +900,7 @@ def update_tags(
     mp3_root: str | Path,
     json_filename: str | Path,
     *,
+    delete: bool = False,
     loader: AudioLoader = _load_audio,
 ) -> int:
     """
@@ -893,13 +910,17 @@ def update_tags(
     file while preserving binary frames, compares POPM values through their
     canonical rating-counter form so equivalent manifest shapes do not rewrite
     files, reports per-file save failures such as unwritable ID3v2.2 tags or OS
-    errors, and summarizes updated, unchanged, and error file counts.
-    Complexity: O(E*(T+F)).
+    errors, and summarizes updated, unchanged, and error file counts. Without
+    --delete, settable tags present in the target and absent from the manifest
+    are preserved instead of removed. Complexity: O(E*(T+F)).
     @param mp3_root {str | Path} Base directory for manifest paths.
     @param json_filename {str | Path} JSON source manifest path.
+    @param delete {bool} True enables removal of settable tags absent from the
+    manifest; False preserves them. Defaults to False.
     @param loader {AudioLoader} Injectable EyeD3-compatible MP3 loader.
     @return {int} Zero without errors; one for per-file errors; two for manifest errors.
-    @satisfies REQ-040, REQ-042, REQ-043, REQ-044, REQ-047, REQ-049, REQ-056, REQ-059
+    @satisfies REQ-040, REQ-042, REQ-043, REQ-044, REQ-047, REQ-049, REQ-056,
+    REQ-059, REQ-060, REQ-062
     """
     root = Path(mp3_root).expanduser().resolve()
     json_file = Path(json_filename).expanduser().resolve()
@@ -953,6 +974,8 @@ def update_tags(
                 if field not in current:
                     added.append(field)
                 elif field not in desired:
+                    if not delete:
+                        continue
                     removed.append(field)
                 else:
                     changed.append(field)

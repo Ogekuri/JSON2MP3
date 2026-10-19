@@ -106,8 +106,8 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **REQ-031**: MUST return two after reporting a manifest read, filesystem, JSON-parse, or root-shape error.
 - **REQ-032**: MUST accept `tags-extract <mp3_root> <json_file>` and recursively select files with a case-insensitive `.mp3` suffix.
 - **REQ-033**: MUST create a new JSON array manifest when `tags-extract` receives a nonexistent destination file.
-- **REQ-034**: MUST replace each existing manifest entry matching a scanned normalized relative path with the current extracted tag object.
-- **REQ-035**: MUST remove existing manifest entries whose normalized relative paths are absent from the recursive scan.
+- **REQ-034**: MUST replace each existing manifest entry matching a scanned normalized relative path with the current extracted tag object when `tags-extract` runs with `--delete`.
+- **REQ-035**: MUST remove existing manifest entries whose normalized relative paths are absent from the recursive scan only when `tags-extract` runs with `--delete`.
 - **REQ-036**: MUST append an extracted manifest entry for each scanned path absent from the existing manifest.
 - **REQ-037**: MUST print changed field names only for existing manifest entries whose extracted tag values differ.
 - **REQ-038**: MUST omit per-file detail output for newly added or removed manifest entries during `tags-extract`.
@@ -116,7 +116,7 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **REQ-041**: MUST report each manifest path whose target MP3 file does not exist and continue remaining entries.
 - **REQ-042**: MUST update an existing ID3 field only when its value differs from the corresponding manifest tag value.
 - **REQ-043**: MUST add an ID3 field present in a manifest tag object and absent from the target file.
-- **REQ-044**: MUST remove every ID3 tag present in the target file and absent from the manifest tag object, excluding binary frames preserved by REQ-056.
+- **REQ-044**: MUST remove every ID3 tag present in the target file and absent from the manifest tag object, excluding binary frames preserved by REQ-056, only when `update-tags` runs with `--delete`.
 - **REQ-045**: MUST print changed, added, and removed field names for every processed `update-tags` manifest entry.
 - **REQ-046**: MUST omit unchanged field names from `update-tags` detail output.
 - **REQ-047**: MUST print an `update-tags` summary containing updated, unchanged, and error file counts.
@@ -132,6 +132,9 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **REQ-057**: MUST extract each `POPM` popularimeter frame as key `POPM:<email>` with an object value containing integer `rating` and integer `counter`.
 - **REQ-058**: MUST accept a `POPM:<email>` value as an integer rating or an object with integer `rating` and optional integer `counter` defaulting to zero.
 - **REQ-059**: MUST accept a legacy `POPM:<email>` object with ignored `email` member, integer `rating`, and optional integer `count` play counter applied when `counter` is absent.
+- **REQ-060**: MUST accept a boolean `--delete` option on both the `tags-extract` and `update-tags` commands.
+- **REQ-061**: MUST merge extracted tag values into a matching existing manifest entry by updating differing values and adding missing values while preserving existing keys absent from the extraction when `tags-extract` runs without `--delete`.
+- **REQ-062**: MUST preserve every settable ID3 tag present in the target file and absent from the manifest tag object when `update-tags` runs without `--delete`.
 
 ## 4. Test Requirements
 
@@ -140,8 +143,8 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 - **TST-003**: MUST verify REQ-005 and REQ-006 by injecting successful and failing release openers and asserting respective cache durations.
 - **TST-004**: MUST verify REQ-017 through REQ-024 using valid, invalid, missing, relative, and dry-run manifest track fixtures.
 - **TST-005**: MUST verify REQ-025 through REQ-030 using a temporary ID3-capable file and assertions for resulting Mutagen frames.
-- **TST-006**: MUST verify REQ-032 through REQ-039 by extracting nested MP3 fixtures into new and existing JSON manifests.
-- **TST-007**: MUST verify REQ-040 through REQ-047 by updating matching, changed, added, removed, and missing MP3 fixture entries.
+- **TST-006**: MUST verify REQ-032 through REQ-039 and REQ-061 by extracting nested MP3 fixtures into new and existing JSON manifests with and without `--delete`.
+- **TST-007**: MUST verify REQ-040 through REQ-047 and REQ-062 by updating matching, changed, added, removed, and missing MP3 fixture entries with and without `--delete`.
 - **TST-008**: MUST verify REQ-049 by extracting a fixture manifest, updating unchanged files, and asserting byte-identical MP3 content.
 - **TST-009**: MUST verify REQ-049 by updating fixture MP3 files from a manifest and asserting a subsequent extraction reproduces that manifest.
 - **TST-010**: MUST verify REQ-052 through REQ-056 using real EyeD3 MP3 fixtures containing user-text, lyrics, synchronized-lyrics, and picture frames.
@@ -175,6 +178,7 @@ json2mp3 0.0.0 is a Python CLI that synchronizes ID3 metadata through JSON manif
 | REQ-025 through REQ-030 | `src/json2mp3/core.py` `_write_id3_tags` — `frames` map, `COMM`, `ID3NoHeaderError`, and `ID3.save`. |
 | TST-001 through TST-005 | Derived verification procedures traceable to the cited executable functions; no existing test source is present. |
 | PRJ-006, PRJ-007, CTN-004 through CTN-006, DES-011, DES-012, REQ-032 through REQ-049, TST-006 through TST-009 | User request — `tags-extract` and `update-tags` command, JSON reconciliation, EyeD3, and round-trip test requirements. |
+| REQ-060 through REQ-062, TST-006, TST-007 | User request — `--delete` option gating removal of destination tags absent from the source for both manifest commands. |
 | REQ-052 through REQ-056, TST-010 | User request — full ID3 frame coverage (`TXXX`, `USLT`, `SYLT`), complete update reconciliation, and binary-frame preservation. |
 | REQ-057, REQ-058, REQ-059, TST-011 | User request — ID3 `POPM` popularimeter field support: extraction keying, JSON value schema, frame construction, and legacy EyeD3-CLI object shape. |
 | REQ-059, TST-013, TST-014 | User request — ID3v2.2 SYLT round trips, same-language `SYLT:<language>:<description>` keys, `TIT1` content grouping, and empty-description `COMM`/`USLT` coverage. |

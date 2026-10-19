@@ -218,9 +218,10 @@ def test_update_tags_creates_updates_and_removes_frame_keys(
 ) -> None:
     """
     @brief Verifies update reconciliation over canonical frame keys.
-    @details Changes one TXXX value, creates one new TXXX key, removes the
-    TXXX:Drop frame and the COMM frame, and asserts resulting frame state and
-    detail output. Complexity: O(T+F). Side effects: temporary fixture write.
+    @details Runs with --delete: changes one TXXX value, creates one new TXXX
+    key, removes the TXXX:Drop frame and the COMM frame, and asserts resulting
+    frame state and detail output. Complexity: O(T+F). Side effects: temporary
+    fixture write.
     @param tmp_path {Path} Pytest isolated temporary directory.
     @param capsys {Any} Pytest stdout capture fixture.
     @return {None} No value.
@@ -247,7 +248,7 @@ def test_update_tags_creates_updates_and_removes_frame_keys(
     )
 
     expected_status = 0
-    actual_status = update_tags(root, manifest)
+    actual_status = update_tags(root, manifest, delete=True)
 
     assert actual_status == expected_status
     tag = _load_tag(song)
@@ -272,9 +273,9 @@ def test_update_tags_removes_sylt_and_preserves_picture_frames(
 ) -> None:
     """
     @brief Verifies SYLT removal and binary-frame preservation.
-    @details Applies a manifest without SYLT and asserts the raw frame is gone
-    while the attached picture frame survives unchanged. Complexity: O(T+F).
-    Side effects: temporary fixture write.
+    @details Applies --delete with a manifest without SYLT and asserts the raw
+    frame is gone while the attached picture frame survives unchanged.
+    Complexity: O(T+F). Side effects: temporary fixture write.
     @param tmp_path {Path} Pytest isolated temporary directory.
     @return {None} No value.
     @satisfies REQ-044, REQ-056
@@ -288,7 +289,7 @@ def test_update_tags_removes_sylt_and_preserves_picture_frames(
     )
 
     expected_status = 0
-    actual_status = update_tags(root, manifest)
+    actual_status = update_tags(root, manifest, delete=True)
 
     assert actual_status == expected_status
     tag = _load_tag(song)
@@ -415,10 +416,11 @@ def test_update_tags_creates_updates_and_removes_popularity_frames(
 ) -> None:
     """
     @brief Verifies update reconciliation over POPM keys using both value forms.
-    @details Updates one frame through the rating/counter object form, creates
-    one frame through the bare integer rating form, and removes the
-    empty-email frame absent from the manifest, asserting final frame state and
-    detail output. Complexity: O(T+F). Side effects: temporary fixture write.
+    @details Runs with --delete: updates one frame through the rating/counter
+    object form, creates one frame through the bare integer rating form, and
+    removes the empty-email frame absent from the manifest, asserting final
+    frame state and detail output. Complexity: O(T+F). Side effects:
+    temporary fixture write.
     @param tmp_path {Path} Pytest isolated temporary directory.
     @param capsys {Any} Pytest stdout capture fixture.
     @return {None} No value.
@@ -443,7 +445,7 @@ def test_update_tags_creates_updates_and_removes_popularity_frames(
     )
 
     expected_status = 0
-    actual_status = update_tags(root, manifest)
+    actual_status = update_tags(root, manifest, delete=True)
 
     assert actual_status == expected_status
     tag = _load_tag(song)
@@ -644,9 +646,9 @@ def test_update_tags_round_trips_url_terms_of_use_and_generic_frames(
     """
     @brief Verifies update reconciliation over WXXX, USER, and generic frames.
     @details Changes WXXX and USER values and the generic TIT1 text, adds the
-    generic TSSE text and WOAF URL frames, keeps TBPM equal, removes WOAR, and
-    asserts resulting frame state and detail output. Complexity: O(T+F). Side
-    effects: temporary fixture write.
+    generic TSSE text and WOAF URL frames, keeps TBPM equal, removes WOAR with
+    --delete, and asserts resulting frame state and detail output. Complexity:
+    O(T+F). Side effects: temporary fixture write.
     @param tmp_path {Path} Pytest isolated temporary directory.
     @param capsys {Any} Pytest stdout capture fixture.
     @return {None} No value.
@@ -677,7 +679,7 @@ def test_update_tags_round_trips_url_terms_of_use_and_generic_frames(
     )
 
     expected_status = 0
-    actual_status = update_tags(root, manifest)
+    actual_status = update_tags(root, manifest, delete=True)
 
     assert actual_status == expected_status
     tag = _load_tag(song)
@@ -1127,8 +1129,9 @@ def test_update_tags_tit1_grouping_adds_updates_and_removes(
     """
     @brief Verifies the TIT1 grouping frame add, update, and remove lifecycle.
     @details Runs update_tags three times against one untagged fixture: first
-    adding TIT1, then changing its value, then removing it through an empty
-    tag object, asserting frame state and detail output after each run.
+    adding TIT1, then changing its value, then removing it with --delete
+    through an empty tag object, asserting frame state and detail output after
+    each run.
     Complexity: O(F). Side effects: temporary fixture and manifest writes.
     @param tmp_path {Path} Pytest isolated temporary directory.
     @param capsys {Any} Pytest stdout capture fixture.
@@ -1162,6 +1165,46 @@ def test_update_tags_tit1_grouping_adds_updates_and_removes(
         json.dumps([{"path": "song.mp3", "tags": {}}]),
         encoding="utf-8",
     )
-    assert update_tags(root, removed_manifest) == expected_status
+    assert update_tags(root, removed_manifest, delete=True) == expected_status
     assert _load_tag(song).frame_set[b"TIT1"] is None
     assert "removed=TIT1" in capsys.readouterr().out
+
+
+def test_update_tags_without_delete_preserves_frames_absent_from_manifest(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """
+    @brief Verifies update-tags preserves frames absent from the manifest.
+    @details Runs without --delete against the multi-frame fixture, changes
+    the title only, and asserts every frame key absent from the manifest
+    survives with its original value. Complexity: O(T+F). Side effects:
+    temporary fixture write.
+    @param tmp_path {Path} Pytest isolated temporary directory.
+    @param capsys {Any} Pytest stdout capture fixture.
+    @return {None} No value.
+    @satisfies REQ-060, REQ-062, TST-007
+    """
+    root = tmp_path / "music"
+    song = _write_frame_mp3(root, "song.mp3")
+    manifest = tmp_path / "tags.json"
+    manifest.write_text(
+        json.dumps([{"path": "song.mp3", "tags": {"title": "Changed"}}]),
+        encoding="utf-8",
+    )
+
+    expected_status = 0
+    actual_status = update_tags(root, manifest)
+
+    assert actual_status == expected_status
+    tag = _load_tag(song)
+    assert tag.title == "Changed"
+    txxx = {frame.description: frame.text for frame in tag.frame_set[b"TXXX"]}
+    assert txxx == {"Keep": "kept value", "Drop": "dropped value"}
+    assert tag.frame_set[b"COMM"][0].text == "hello"
+    assert tag.frame_set[b"USLT"][0].text == "testo"
+    assert tag.frame_set[b"SYLT"] is not None
+    assert len(tag.images) == 1
+    output = capsys.readouterr().out
+    assert "changed=title" in output
+    assert "removed=" not in output
+    assert "Summary: updated=1 unchanged=0 errors=0" in output

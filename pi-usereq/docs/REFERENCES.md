@@ -64,7 +64,7 @@ from .core import main
 
 ---
 
-# core.py | Python | 348L | 28 symbols | 17 imports | 27 comments
+# core.py | Python | 359L | 28 symbols | 17 imports | 27 comments
 > Path: `src/json2mp3/core.py`
 
 ## Imports
@@ -101,52 +101,52 @@ from mutagen.id3._util import ID3NoHeaderError
 - var `GREEN = "\033[92m"` (L28)
 - var `RED = "\033[91m"` (L29)
 - var `RESET = "\033[0m"` (L30)
-### fn `def _human_timestamp(timestamp: float) -> str` `priv` (L55-59)
+### fn `def _human_timestamp(timestamp: float) -> str` `priv` (L59-63)
 - @brief Stores the full CLI help screen rendered by main.
 - @details Documents management commands and every data command with its manifest
 semantics; rendered verbatim for no-argument and --help invocations.
 - @satisfies REQ-009, REQ-050
 
-### fn `def _cache_path() -> Path` `priv` (L60-64)
+### fn `def _cache_path() -> Path` `priv` (L64-68)
 
-### fn `def _write_cache(delay: int, now: float | None = None) -> None` `priv` (L65-79)
+### fn `def _write_cache(delay: int, now: float | None = None) -> None` `priv` (L69-83)
 
-### fn `def _cache_is_active(now: float | None = None) -> bool` `priv` (L80-90)
+### fn `def _cache_is_active(now: float | None = None) -> bool` `priv` (L84-94)
 
-### fn `def _version_key(version: str) -> tuple[int, ...] | None` `priv` (L91-99)
+### fn `def _version_key(version: str) -> tuple[int, ...] | None` `priv` (L95-103)
 
-### fn `def _is_newer_version(candidate: str, installed: str) -> bool` `priv` (L100-109)
+### fn `def _is_newer_version(candidate: str, installed: str) -> bool` `priv` (L104-113)
 
-### fn `def _print_coloured(colour: str, message: str) -> None` `priv` (L110-113)
+### fn `def _print_coloured(colour: str, message: str) -> None` `priv` (L114-117)
 
-### fn `def _fetch_latest_version(opener: Callable[..., Any] | None = None) -> str` `priv` (L114-128)
+### fn `def _fetch_latest_version(opener: Callable[..., Any] | None = None) -> str` `priv` (L118-132)
 
-### fn `def check_for_update(*, force: bool = False, opener: Callable[..., Any] | None = None) -> bool` (L129-163)
+### fn `def check_for_update(*, force: bool = False, opener: Callable[..., Any] | None = None) -> bool` (L133-167)
 
-### fn `def _run_tool_command(action: str) -> int` `priv` (L164-183)
+### fn `def _run_tool_command(action: str) -> int` `priv` (L168-187)
 
-### fn `def _load_tracks(json_file: Path) -> list[dict[str, Any]]` `priv` (L184-203)
+### fn `def _load_tracks(json_file: Path) -> list[dict[str, Any]]` `priv` (L188-207)
 
-### fn `def _write_id3_tags(audio_file: Path, tags: dict[str, Any]) -> None` `priv` (L204-232)
+### fn `def _write_id3_tags(audio_file: Path, tags: dict[str, Any]) -> None` `priv` (L208-236)
 
-### fn `def sync_from_json(json_filename: str, *, dry_run: bool = False) -> int` (L233-269)
+### fn `def sync_from_json(json_filename: str, *, dry_run: bool = False) -> int` (L237-273)
 
-### fn `def _sync_parser() -> argparse.ArgumentParser` `priv` (L270-276)
+### fn `def _sync_parser() -> argparse.ArgumentParser` `priv` (L274-280)
 
-- var `TAG_COMMAND_DESCRIPTIONS = {` (L282)
-### fn `def _tag_command_parser(command: str) -> argparse.ArgumentParser` `priv` (L289-304)
+- var `TAG_COMMAND_DESCRIPTIONS = {` (L286)
+### fn `def _tag_command_parser(command: str) -> argparse.ArgumentParser` `priv` (L293-314)
 - @brief Creates the shared parser for an EyeD3 manifest command.
-- @details Defines positional MP3-root and JSON-manifest arguments plus the command description consumed by command-specific help. Complexity: O(1). Side effects: none.
+- @details Defines positional MP3-root and JSON-manifest arguments, the boolean --delete removal switch shared by both manifest commands, and the command description consumed by command-specific help. Complexity: O(1). Side effects: none.
 - @param command {str} CLI command name.
 - @return {argparse.ArgumentParser} Configured parser instance.
-- @satisfies REQ-032, REQ-040
+- @satisfies REQ-032, REQ-040, REQ-060
 
-### fn `def main(argv: Sequence[str] | None = None) -> int` (L305-349)
+### fn `def main(argv: Sequence[str] | None = None) -> int` (L315-360)
 - @brief Dispatches command-line arguments to management and tag operations.
-- @details Performs the existing release check before routing recognized command sequences; delegates EyeD3 manifest commands without altering sync behavior. Complexity: O(1) excluding delegated operations. Side effects: stdout, network, filesystem, and optional subprocess interactions.
+- @details Performs the existing release check before routing recognized command sequences; delegates EyeD3 manifest commands forwarding the shared --delete switch without altering sync behavior. Complexity: O(1) excluding delegated operations. Side effects: stdout, network, filesystem, and optional subprocess interactions.
 - @param argv {Sequence[str] | None} Explicit CLI tokens or null for sys.argv.
 - @return {int} Delegated command status or CLI validation status.
-- @satisfies PRJ-003, PRJ-006, PRJ-007, REQ-001, REQ-032, REQ-040
+- @satisfies PRJ-003, PRJ-006, PRJ-007, REQ-001, REQ-032, REQ-040, REQ-060
 
 ## Symbol Index
 |Symbol|Kind|Vis|Lines|Sig|
@@ -162,28 +162,28 @@ semantics; rendered verbatim for no-argument and --help invocations.
 |`GREEN`|var|pub|28||
 |`RED`|var|pub|29||
 |`RESET`|var|pub|30||
-|`_human_timestamp`|fn|priv|55-59|def _human_timestamp(timestamp: float) -> str|
-|`_cache_path`|fn|priv|60-64|def _cache_path() -> Path|
-|`_write_cache`|fn|priv|65-79|def _write_cache(delay: int, now: float | None = None) ->...|
-|`_cache_is_active`|fn|priv|80-90|def _cache_is_active(now: float | None = None) -> bool|
-|`_version_key`|fn|priv|91-99|def _version_key(version: str) -> tuple[int, ...] | None|
-|`_is_newer_version`|fn|priv|100-109|def _is_newer_version(candidate: str, installed: str) -> ...|
-|`_print_coloured`|fn|priv|110-113|def _print_coloured(colour: str, message: str) -> None|
-|`_fetch_latest_version`|fn|priv|114-128|def _fetch_latest_version(opener: Callable[..., Any] | No...|
-|`check_for_update`|fn|pub|129-163|def check_for_update(*, force: bool = False, opener: Call...|
-|`_run_tool_command`|fn|priv|164-183|def _run_tool_command(action: str) -> int|
-|`_load_tracks`|fn|priv|184-203|def _load_tracks(json_file: Path) -> list[dict[str, Any]]|
-|`_write_id3_tags`|fn|priv|204-232|def _write_id3_tags(audio_file: Path, tags: dict[str, Any...|
-|`sync_from_json`|fn|pub|233-269|def sync_from_json(json_filename: str, *, dry_run: bool =...|
-|`_sync_parser`|fn|priv|270-276|def _sync_parser() -> argparse.ArgumentParser|
-|`TAG_COMMAND_DESCRIPTIONS`|var|pub|282||
-|`_tag_command_parser`|fn|priv|289-304|def _tag_command_parser(command: str) -> argparse.Argumen...|
-|`main`|fn|pub|305-349|def main(argv: Sequence[str] | None = None) -> int|
+|`_human_timestamp`|fn|priv|59-63|def _human_timestamp(timestamp: float) -> str|
+|`_cache_path`|fn|priv|64-68|def _cache_path() -> Path|
+|`_write_cache`|fn|priv|69-83|def _write_cache(delay: int, now: float | None = None) ->...|
+|`_cache_is_active`|fn|priv|84-94|def _cache_is_active(now: float | None = None) -> bool|
+|`_version_key`|fn|priv|95-103|def _version_key(version: str) -> tuple[int, ...] | None|
+|`_is_newer_version`|fn|priv|104-113|def _is_newer_version(candidate: str, installed: str) -> ...|
+|`_print_coloured`|fn|priv|114-117|def _print_coloured(colour: str, message: str) -> None|
+|`_fetch_latest_version`|fn|priv|118-132|def _fetch_latest_version(opener: Callable[..., Any] | No...|
+|`check_for_update`|fn|pub|133-167|def check_for_update(*, force: bool = False, opener: Call...|
+|`_run_tool_command`|fn|priv|168-187|def _run_tool_command(action: str) -> int|
+|`_load_tracks`|fn|priv|188-207|def _load_tracks(json_file: Path) -> list[dict[str, Any]]|
+|`_write_id3_tags`|fn|priv|208-236|def _write_id3_tags(audio_file: Path, tags: dict[str, Any...|
+|`sync_from_json`|fn|pub|237-273|def sync_from_json(json_filename: str, *, dry_run: bool =...|
+|`_sync_parser`|fn|priv|274-280|def _sync_parser() -> argparse.ArgumentParser|
+|`TAG_COMMAND_DESCRIPTIONS`|var|pub|286||
+|`_tag_command_parser`|fn|priv|293-314|def _tag_command_parser(command: str) -> argparse.Argumen...|
+|`main`|fn|pub|315-360|def main(argv: Sequence[str] | None = None) -> int|
 
 
 ---
 
-# tag_manifest.py | Python | 984L | 32 symbols | 10 imports | 72 comments
+# tag_manifest.py | Python | 1007L | 32 symbols | 10 imports | 72 comments
 > Path: `src/json2mp3/tag_manifest.py`
 
 ## Imports
@@ -411,17 +411,26 @@ Complexity: O(E), where E is entry count. Side effects: file read.
 - @return {list[str]} Lexically ordered differing tag keys.
 - @satisfies REQ-037, REQ-046
 
-### fn `def tags_extract(` (L795-799)
+### fn `def tags_extract(` (L795-800)
 
-### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L842-882)
+### fn `def _set_tag_field(tag: Any, field: str, value: Any) -> None` `priv` (L858-898)
 - @brief Extracts recursive MP3 ID3 data and reconciles one JSON manifest.
 - @brief Assigns or clears one manifest tag key on an EyeD3 tag object.
-- @details Loads existing entries, replaces scanned entries by normalized path,
-removes stale entries, writes the complete sorted array, and emits only
-changed existing-tag details plus file-count summary. Complexity: O(F log F).
+- @details Loads existing entries, resolves every scanned entry by normalized
+path, writes the complete sorted array, and emits only changed existing-tag
+details plus file-count summary. Without --delete, extracted values are
+merged into matching existing entries by updating differing values and
+adding missing values while preserving existing keys absent from the
+extraction, and entries absent from the scan are preserved with a zero
+removed count. With --delete, matching entries are replaced by the
+extracted tags and entries absent from the scan are removed.
+Complexity: O(F log F).
 - @details Routes supported attribute fields through EyeD3 attribute setters, converting track and disc lists to tuples, and routes canonical frame keys through frame replacement or removal. Attribute writes rejected by EyeD3 with GenreException for non-standard numeric genre strings fall back to replacing the covering ATTRIBUTE_FRAME_IDS frame with the literal string value. Complexity: O(F) frames. Side effects: mutates tag.
 - @param mp3_root {str | Path} Recursive MP3 directory root.
 - @param json_filename {str | Path} JSON destination manifest path.
+- @param delete {bool} True enables replacement of matching entries and
+removal of entries absent from the scan; False merges and preserves them.
+Defaults to False.
 - @param loader {AudioLoader} Injectable EyeD3-compatible MP3 loader.
 - @param tag {Any} Mutable EyeD3 tag object.
 - @param field {str} Supported attribute name or canonical frame key.
@@ -429,10 +438,11 @@ changed existing-tag details plus file-count summary. Complexity: O(F log F).
 - @return {int} Zero on successful reconciliation; two on input/manifest error.
 - @return {None} No value. @raises ValueError If a frame value shape is invalid.
 - @note The GenreException fallback writes str(value) as raw covering-frame text; null values never reach it because EyeD3 removes attributes without parsing.
-- @satisfies REQ-032, REQ-039, REQ-048, REQ-049, REQ-052, REQ-056
+- @satisfies REQ-032, REQ-034, REQ-035, REQ-039, REQ-048, REQ-049, REQ-052,
+REQ-056, REQ-060, REQ-061
 - @satisfies REQ-042, REQ-043, REQ-044, REQ-053
 
-### fn `def update_tags(` (L883-887)
+### fn `def update_tags(` (L899-904)
 
 ## Symbol Index
 |Symbol|Kind|Vis|Lines|Sig|
@@ -466,7 +476,7 @@ changed existing-tag details plus file-count summary. Complexity: O(F log F).
 |`_read_manifest`|fn|priv|717-720|def _read_manifest(|
 |`_write_manifest`|fn|priv|756-776|def _write_manifest(json_file: Path, manifest: dict[str, ...|
 |`_changed_fields`|fn|priv|777-794|def _changed_fields(old_tags: dict[str, Any], new_tags: d...|
-|`tags_extract`|fn|pub|795-799|def tags_extract(|
-|`_set_tag_field`|fn|priv|842-882|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
-|`update_tags`|fn|pub|883-887|def update_tags(|
+|`tags_extract`|fn|pub|795-800|def tags_extract(|
+|`_set_tag_field`|fn|priv|858-898|def _set_tag_field(tag: Any, field: str, value: Any) -> None|
+|`update_tags`|fn|pub|899-904|def update_tags(|
 
