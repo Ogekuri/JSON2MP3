@@ -3,12 +3,13 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/license-GPL--3.0-491?style=flat-square" alt="License: GPL-3.0">
-  <img src="https://img.shields.io/badge/platform-Linux-6A7EC2?style=flat-square&logo=terminal&logoColor=white" alt="Platforms">
-  <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json" alt="uv">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-6A7EC2?style=flat-square&logo=terminal&logoColor=white" alt="Platforms">
+  <img src="https://img.shields.io/badge/docs-live-b31b1b" alt="Docs">
+<img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json" alt="uv">
 </p>
 
 <p align="center">
-<strong>Sync ID3 tags with a JSON file</strong><br>
+<strong>Sync ID3 tags with a JSON file.</strong><br>
 json2mp3 synchronizes ID3 metadata of MP3 libraries with JSON manifests. It can
 extract tags from nested MP3 folders into a JSON file, apply a JSON file to MP3
 tags, and write individual Mutagen ID3 frames from a track manifest.
@@ -20,6 +21,12 @@ tags, and write individual Mutagen ID3 frames from a track manifest.
   <a href="#json-manifest-formats">JSON Manifest Formats</a> |
   <a href="#install-with-astral-uv">Install</a>
 </p>
+<p align="center">
+<br>
+🚧 <strong>DRAFT</strong>: 👾 Alpha Development 👾 - Work in Progress 🏗️ 🚧<br>
+⚠️ <strong>IMPORTANT NOTICE</strong>: Created itself with <a href="https://github.com/Ogekuri/PI-useReq"><strong>PI-useReq/pi-usereq</strong></a> 🤖✨ ⚠️<br>
+<br>
+<p>
 
 ## Quick Start
 
