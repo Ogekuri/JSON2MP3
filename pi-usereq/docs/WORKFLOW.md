@@ -49,13 +49,16 @@
       - external: argparse help rendering or argument parsing (`--help sync` and `sync` branches)
     - `_tag_command_parser(...)`: build positional parsers plus the shared `--delete` switch for `tags-extract` and `update-tags` [`src/json2mp3/core.py`]
       - external: argparse help rendering and argument parsing
-    - `tags_extract(...)`: recursively reconcile all EyeD3 text-bearing and popularimeter MP3 frames into a JSON array, merging into and preserving entries absent from the scan without `--delete`, and replacing plus removing them with `--delete` [`src/json2mp3/tag_manifest.py`]
+    - `tags_extract(...)`: recursively reconcile all EyeD3 text-bearing and popularimeter MP3 frames into a JSON array, merging into and preserving entries absent from the scan without `--delete`, and replacing plus removing them with `--delete`; returns zero on success or two on manifest/scan error [`src/json2mp3/tag_manifest.py`]
       - without `--delete`: extracted values update differing keys and add missing keys while existing keys absent from the extraction are preserved; entries absent from the scan are carried into the written manifest and the removed count stays zero
+      - on manifest-read or scan error: external stdout `Error:` write and status-two return before any scan work
       - `_read_manifest(...)`: load existing JSON array entries into a normalized path index [`src/json2mp3/tag_manifest.py`]
+        - external: UTF-8 manifest file read and JSON parse; missing destination accepted as empty
       - `_scan_mp3_files(...)`: recursively discover sorted `.mp3` paths [`src/json2mp3/tag_manifest.py`]
         - `_normalise_relative_path(...)`: create a POSIX-relative path key [`src/json2mp3/tag_manifest.py`]
-      - `_load_audio(...)`: load one MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
-        - external: EyeD3 MP3 parse; module import sets the stdlib `eyed3` logger level to ERROR, filtering WARNING-level EyeD3 records (unsupported frames, non-standard genres) before stderr emission
+      - injectable `loader` (default `_load_audio`): load one MP3 [`src/json2mp3/tag_manifest.py`]
+        - `_load_audio(...)`: load one MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
+          - external: EyeD3 MP3 parse; module import sets the stdlib `eyed3` logger level to ERROR, filtering WARNING-level EyeD3 records (unsupported frames, non-standard genres) before stderr emission
       - `_tag_values(...)`: extract attribute fields plus every text-bearing and popularimeter ID3 frame [`src/json2mp3/tag_manifest.py`]
         - `_attribute_value(...)`: read one attribute field, falling back to the covering ATTRIBUTE_FRAME_IDS frame when EyeD3 raises GenreException [`src/json2mp3/tag_manifest.py`]
         - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
@@ -68,12 +71,15 @@
           - `_parse_sylt_payload(...)`: decode a raw SYLT frame payload into lang, description, format, type, and timestamped entries [`src/json2mp3/tag_manifest.py`]
       - `_changed_fields(...)`: identify changed tag keys [`src/json2mp3/tag_manifest.py`]
       - `_write_manifest(...)`: serialize the reconciled sorted JSON array [`src/json2mp3/tag_manifest.py`]
-        - external: JSON file write
-    - `update_tags(...)`: reconcile EyeD3 MP3 tags of every manifest key from a JSON array [`src/json2mp3/tag_manifest.py`]
+        - external: parent-directory creation, UTF-8 JSON file write
+    - `update_tags(...)`: reconcile EyeD3 MP3 tags of every manifest key from a JSON array; returns zero without errors, one for per-file errors, and two for root or manifest errors [`src/json2mp3/tag_manifest.py`]
       - without `--delete`: settable tags present in the target and absent from the manifest are preserved instead of removed; with `--delete` they are removed while binary frames stay preserved
+      - external: MP3-root directory existence check; status-two return when the root is not a directory
       - `_read_manifest(...)`: load source JSON array entries into a normalized path index [`src/json2mp3/tag_manifest.py`]
-      - `_load_audio(...)`: load one target MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
-        - external: EyeD3 MP3 parse and optional tag initialization; WARNING-level EyeD3 records filtered by the `eyed3` logger ERROR threshold configured at module import
+        - external: UTF-8 manifest file read and JSON parse; missing destination rejected
+      - injectable `loader` (default `_load_audio`): load one target MP3 [`src/json2mp3/tag_manifest.py`]
+        - `_load_audio(...)`: load one target MP3 through EyeD3 [`src/json2mp3/tag_manifest.py`]
+          - external: EyeD3 MP3 parse and optional tag initialization when the loaded audio has no tag; WARNING-level EyeD3 records filtered by the `eyed3` logger ERROR threshold configured at module import
       - `_tag_values(...)`: read current attribute and frame tag values [`src/json2mp3/tag_manifest.py`]
         - `_attribute_value(...)`: read one attribute field, falling back to the covering ATTRIBUTE_FRAME_IDS frame when EyeD3 raises GenreException [`src/json2mp3/tag_manifest.py`]
         - `_normalise_value(...)`: convert EyeD3 values to JSON-compatible values [`src/json2mp3/tag_manifest.py`]
@@ -102,10 +108,11 @@
               - `_encode_id3_string(...)`: encode one string with a selected ID3 encoding [`src/json2mp3/tag_manifest.py`]
         - external: EyeD3 tag save when a file has differences; binary frames such as attached pictures are never removed; save failures such as the ID3v2.2 `NotImplementedError` and OS errors are reported as per-file errors without aborting the run
     - `_run_tool_command(...)`: execute or print the `uv` tool install/uninstall command [`src/json2mp3/core.py`]
-      - external: platform detection; child-process spawn (`subprocess.run`) into PROC:uv-tool with inherited stdio
+      - external: platform detection; non-Linux platforms receive manual-command stdout writes and status zero
+      - external: child-process spawn (`subprocess.run`) into PROC:uv-tool with inherited stdio on Linux
       - `_print_coloured(...)`: print the bright-red message when the child cannot be spawned [`src/json2mp3/core.py`]
         - external: stdout write
-    - `sync_from_json(...)`: synchronise ID3 tags from a manifest to MP3 files [`src/json2mp3/core.py`]
+    - `sync_from_json(...)`: synchronise ID3 tags from a manifest to MP3 files; returns two on manifest error, one when any track fails, and zero otherwise [`src/json2mp3/core.py`]
       - external: manifest path expansion and resolution
       - `_load_tracks(...)`: parse and validate the manifest structure [`src/json2mp3/core.py`]
         - external: UTF-8 manifest file read, JSON parse
