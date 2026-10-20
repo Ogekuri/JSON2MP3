@@ -56,6 +56,10 @@ Commands:
   sync          Write Mutagen ID3 frames from a track manifest to MP3 files.
   tags-extract  Extract EyeD3 tags of nested MP3 files into a JSON manifest.
   update-tags   Apply EyeD3 tag values from a JSON manifest to MP3 files.
+
+Shared Command Option:
+  --delete    Remove destination tags absent from the source; omit it to
+              only add missing and update differing tags.
 ```
 
 Command-specific help:
@@ -66,18 +70,23 @@ json2mp3 --help tags-extract
 json2mp3 --help update-tags
 ```
 
+Exit codes: `0` on success; `1` when any `sync` track fails; `2` for usage,
+unknown-command, or manifest errors.
+
 ### tags-extract
 
 ```bash
-json2mp3 tags-extract <mp3_root> <json_file>
+json2mp3 tags-extract <mp3_root> <json_file> [--delete]
 ```
 
 Recursively scans `<mp3_root>` for `.mp3` files (case-insensitive), extracts
 their ID3 tags with EyeD3, and reconciles `<json_file>`:
 
 - a missing JSON file is created as a new manifest;
-- existing entries are refreshed using the relative file path as the key;
-- entries for files that no longer exist are removed;
+- existing entries are merged: extracted values update differing fields and
+  add missing fields, while fields absent from the extraction are kept;
+- with `--delete`, matching entries are replaced by the extracted tags and
+  entries for files that no longer exist are removed;
 - files not yet in the manifest are appended;
 - changed field names are printed only for entries that were already present;
 - a summary with updated, added, and removed file counts is always printed.
@@ -85,14 +94,14 @@ their ID3 tags with EyeD3, and reconciles `<json_file>`:
 ### update-tags
 
 ```bash
-json2mp3 update-tags <mp3_root> <json_file>
+json2mp3 update-tags <mp3_root> <json_file> [--delete]
 ```
 
 Reads the JSON manifest and updates the ID3 tags of the referenced MP3 files
 with EyeD3. Paths in the manifest are resolved relative to `<mp3_root>`:
 
-- differing tags are updated, missing tags are added, and extra tags are
-  removed;
+- differing tags are updated and missing tags are added; with `--delete`,
+  tags absent from the manifest are removed (otherwise preserved);
 - binary frames such as attached pictures are preserved unchanged;
 - unchanged tags are left untouched and never printed;
 - changed, added, and removed tag names are printed per updated file;
@@ -147,14 +156,20 @@ pictures are preserved untouched and never appear in the manifest.
 Frame key syntax: `TXXX:<description>` and `WXXX:<description>` for
 user-defined frames, `COMM:<language>:<description>`,
 `USLT:<language>:<description>`, and `SYLT:<language>:<description>` for
-language frames, `USER:<language>` for terms of use, and the bare frame
-identifier (for example `TBPM`) for other text and URL frames.
+language frames, `USER:<language>` for terms of use, `POPM:<email>` for
+popularimeter frames, and the bare frame identifier (for example `TBPM`) for
+other text and URL frames. A `POPM:<email>` value is an integer rating or an
+object `{ "rating": <int>, "counter": <int> }` (a legacy `count` member is
+accepted as an alias for `counter`). Binary frame identifiers cannot appear
+as manifest keys and are ignored.
 
 ### sync (Mutagen)
 
-An object with a `files` array of track entries. Supported fields are `title`,
-`artist`, `album`, `albumartist`, `date`, `year`, `genre`, `tracknumber`,
-`discnumber`, and `comment`.
+Track entries are accepted in one of three shapes: an object with a `files`
+array, an object with a `tracks` array, or an object mapping track paths
+directly to tag objects. Supported fields are `title`, `artist`, `album`,
+`albumartist`, `date`, `year`, `genre`, `tracknumber`, `discnumber`, and
+`comment`.
 
 ```json
 {
