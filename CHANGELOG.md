@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.0](https://github.com/Ogekuri/JSON2MP3/compare/v0.1.0..v0.2.0) - 2026-10-20
+### 📚  Documentation
+- Update README.md.
+
 ## [0.1.0](https://github.com/Ogekuri/JSON2MP3/releases/tag/v0.1.0) - 2026-10-20
 ### ⛰️  Features
 - support ID3 POPM popularimeter frames in tag manifests [useReq] *(tag_manifest)*
@@ -101,5 +105,7 @@
 # History
 
 - \[0.1.0\]: https://github.com/Ogekuri/JSON2MP3/releases/tag/v0.1.0
+- \[0.2.0\]: https://github.com/Ogekuri/JSON2MP3/releases/tag/v0.2.0
 
 [0.1.0]: https://github.com/Ogekuri/JSON2MP3/releases/tag/v0.1.0
+[0.2.0]: https://github.com/Ogekuri/JSON2MP3/compare/v0.1.0..v0.2.0

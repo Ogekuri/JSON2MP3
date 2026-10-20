@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "json2mp3"
-version = "0.1.0"
+version = "0.2.0"
 description = "Sync ID3 tags with a JSON file."
 readme = "README.md"
 requires-python = ">=3.11"
